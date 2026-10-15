@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@500&family=Space+Grotesk:wght@700&display=block">
+<style>
+*{margin:0;box-sizing:border-box}
+body{width:1200px;height:630px;background:#120a06;color:#f6efea;font-family:Inter,sans-serif;overflow:hidden;position:relative}
+.bg{position:absolute;inset:0;background:radial-gradient(50% 60% at 15% 20%,rgba(251,191,36,.26),transparent 70%),radial-gradient(45% 55% at 90% 80%,rgba(220,38,38,.28),transparent 70%),radial-gradient(35% 45% at 60% 100%,rgba(249,115,22,.22),transparent 70%)}
+.grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(70% 70% at 40% 40%,#000 30%,transparent 85%)}
+.c{position:absolute;inset:0;padding:64px 90px;display:flex;flex-direction:column;justify-content:center}
+.row{display:flex;align-items:center;gap:28px}
+.row svg{flex:none;border-radius:36px;box-shadow:0 20px 50px -12px rgba(234,88,12,.6)}
+.name{font:700 64px 'Space Grotesk';letter-spacing:-.02em}
+h1{font:700 80px/1.02 'Space Grotesk';letter-spacing:-.03em;margin-top:36px}
+h1 span{background:linear-gradient(100deg,#fde68a,#fdba74 45%,#fca5a5);-webkit-background-clip:text;color:transparent}
+p{font-size:28px;color:#c4b5aa;margin-top:26px}
+.tags{display:flex;gap:12px;margin-top:34px}
+.tags b{font:500 20px 'JetBrains Mono';padding:8px 16px;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(255,255,255,.05);color:#fed7aa}
+</style></head><body><div class="bg"></div><div class="grid"></div>
+<div class="c"><div class="row"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="168" height="168" role="img" aria-label="hive-mcp logo">
+  <defs>
+    <linearGradient id="hv-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FBBF24"/>
+      <stop offset="0.5" stop-color="#F97316"/>
+      <stop offset="1" stop-color="#B91C1C"/>
+    </linearGradient>
+    <radialGradient id="hv-glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hv-flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F59E0B"/>
+      <stop offset="1" stop-color="#DC2626"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#hv-bg)"/>
+  <circle cx="58" cy="56" r="46" fill="url(#hv-glow)"/>
+  <!-- A thermostat dial: a track, the part turned up, and the knob. -->
+  <circle cx="64" cy="66" r="42" fill="#FFFFFF"/>
+  <path d="M42.08 87.92 A31 31 0 1 1 85.92 87.92" fill="none" stroke="#B91C1C" stroke-opacity="0.15" stroke-width="7" stroke-linecap="round"/>
+  <path d="M42.08 87.92 A31 31 0 1 1 90.85 50.5" fill="none" stroke="url(#hv-flame)" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="90.85" cy="50.5" r="6.5" fill="#FFFFFF" stroke="#DC2626" stroke-width="3"/>
+  <!-- The flame in the middle. -->
+  <g transform="translate(64 64) scale(1.22) translate(-64 -66)">
+    <path d="M64 46 C66 54 76 59 76 71 C76 79 70.6 85 64 85 C57.4 85 52 79.6 52 73 C52 66 56 62 58 57 C59.5 61 61 63 63.5 64.5 C64.5 58 63.5 52 64 46 Z" fill="url(#hv-flame)"/>
+    <path d="M64 63 C67 67 70 70 70 75 C70 79 67.3 82 64 82 C60.7 82 58 79.3 58 76 C58 72 61 69 62 66 C63 68 64 69 64.5 69.5 C65 67 64.5 65 64 63 Z" fill="#FDE68A"/>
+  </g>
+</svg><div class="name">hive-mcp</div></div>
+<h1>Talk to your <span>Hive heating.</span></h1>
+<p>An unofficial, open-source MCP server for Claude and other AI assistants.</p>
+<div class="tags"><b>24 tools</b><b>Docker</b><b>Read-only by default</b><b>MIT</b></div></div></body></html>

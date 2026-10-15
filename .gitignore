@@ -1,0 +1,4 @@
+/bin/
+.env
+tokens.json
+.build/

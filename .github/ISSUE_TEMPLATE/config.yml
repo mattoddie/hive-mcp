@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions and ideas
+    url: https://github.com/mattoddie/hive-mcp/discussions
+    about: Ask a question or share an idea in Discussions.
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/mattoddie/hive-mcp/security/advisories/new
+    about: Please report vulnerabilities privately, not as a public issue.
+  - name: 📖 Documentation
+    url: https://hive-mcp.mattoddie.dev/docs/
+    about: Setup, configuration, troubleshooting and the full tool reference.
+  - name: 🏠 Problems with your Hive account or devices
+    url: https://www.hivehome.com/support
+    about: hive-mcp is unofficial. For problems with the Hive app, your account or your devices, contact Hive.

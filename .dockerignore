@@ -1,0 +1,9 @@
+.git
+.env
+.claude
+bin
+docs
+website
+.github
+*.md
+tokens.json

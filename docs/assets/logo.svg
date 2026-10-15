@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="hive-mcp logo">
+  <defs>
+    <linearGradient id="hv-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FBBF24"/>
+      <stop offset="0.5" stop-color="#F97316"/>
+      <stop offset="1" stop-color="#B91C1C"/>
+    </linearGradient>
+    <radialGradient id="hv-glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hv-flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F59E0B"/>
+      <stop offset="1" stop-color="#DC2626"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#hv-bg)"/>
+  <circle cx="58" cy="56" r="46" fill="url(#hv-glow)"/>
+  <!-- A thermostat dial: a track, the part turned up, and the knob. -->
+  <circle cx="64" cy="66" r="42" fill="#FFFFFF"/>
+  <path d="M42.08 87.92 A31 31 0 1 1 85.92 87.92" fill="none" stroke="#B91C1C" stroke-opacity="0.15" stroke-width="7" stroke-linecap="round"/>
+  <path d="M42.08 87.92 A31 31 0 1 1 90.85 50.5" fill="none" stroke="url(#hv-flame)" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="90.85" cy="50.5" r="6.5" fill="#FFFFFF" stroke="#DC2626" stroke-width="3"/>
+  <!-- The flame in the middle. -->
+  <g transform="translate(64 64) scale(1.22) translate(-64 -66)">
+    <path d="M64 46 C66 54 76 59 76 71 C76 79 70.6 85 64 85 C57.4 85 52 79.6 52 73 C52 66 56 62 58 57 C59.5 61 61 63 63.5 64.5 C64.5 58 63.5 52 64 46 Z" fill="url(#hv-flame)"/>
+    <path d="M64 63 C67 67 70 70 70 75 C70 79 67.3 82 64 82 C60.7 82 58 79.3 58 76 C58 72 61 69 62 66 C63 68 64 69 64.5 69.5 C65 67 64.5 65 64 63 Z" fill="#FDE68A"/>
+  </g>
+</svg>

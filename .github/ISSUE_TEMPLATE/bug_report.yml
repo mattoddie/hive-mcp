@@ -1,0 +1,59 @@
+name: 🐛 Bug report
+description: Something doesn't work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please check [Troubleshooting](https://hive-mcp.mattoddie.dev/docs/troubleshooting/) first.
+        **Remove your email address, password, tokens, the token file's contents, device IDs, your postcode and other private details** from anything you paste.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: tool
+    attributes:
+      label: Tool(s) or command involved
+      placeholder: e.g. hive_boost_heating, or hive-mcp login
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Error output
+      description: The tool error text and/or `docker compose logs hive-mcp` output, with private details removed.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: hive-mcp version
+      description: From `hive-mcp version`, or the image tag you run.
+      placeholder: e.g. 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: devices
+    attributes:
+      label: Hive devices involved
+      description: For example "Hive Thermostat mini (SLT5) with boiler module (SLR2)", "Hive radiator valve (TRV001)", "Hive Active Plug (SLP2b)". The models are in `hive_list_devices`.
+  - type: input
+    id: access
+    attributes:
+      label: Settings
+      description: HIVE_ALLOW_WRITES on or off, HIVE_TOOLSETS if not all.
+      placeholder: e.g. writes on, toolsets all
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Transport and client
+      options:
+        - HTTP — Claude Code
+        - HTTP — other client
+        - stdio — Claude Desktop
+        - stdio — other client
+    validations:
+      required: true
