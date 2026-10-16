@@ -6,6 +6,13 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-16
+
+### Security
+
+- Update `golang.org/x/sys` to v0.44.0 for GO-2026-5024. The advisory is Windows-only and not reachable from this code, so the Linux images weren't affected.
+- Build with Go 1.26.9 (`toolchain go1.26.9`), which fixes standard-library advisories in `net/http`, `mime/multipart` and `crypto/tls`.
+
 ## [0.1.0] - 2026-10-15
 
 First release, not yet tested against a live Hive account. Hive's API is unofficial, so expect rough edges, and please [report](https://github.com/mattoddie/hive-mcp/issues/new/choose) anything Hive rejects.
@@ -27,5 +34,6 @@ First release, not yet tested against a live Hive account. Hive's API is unoffic
 - Multi-arch distroless Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - A mock Hive for tests (sign-in page, a Cognito that checks SRP proofs, SMS codes and remembered devices, and the API), and documentation including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/hive-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/mattoddie/hive-mcp/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/mattoddie/hive-mcp/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mattoddie/hive-mcp/releases/tag/v0.1.0
