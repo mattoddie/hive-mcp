@@ -60,6 +60,21 @@ const features = [
 const coverage = ["Hive thermostats", "Multi-zone heating", "Radiator valves (TRVs)", "Hot water", "Holiday mode", "Smart plugs", "Active lights", "Window & door sensors"];
 const clients = ["Claude Code", "Claude Desktop", "VS Code", "Cursor", "Codex", "Any MCP client"];
 
+// Falling snow behind the hero, and pines in the garden of the illustrated house.
+const flakes = Array.from({ length: 36 }, (_, i) => ({
+  x: Math.round((i * 157.3) % 1440),
+  r: 1 + (i % 3) * 0.7,
+  dur: 10 + ((i * 7) % 9),
+  delay: -((i * 3.7) % 18).toFixed(1),
+}));
+const trees = [
+  { x: 70, s: 0.8 },
+  { x: 170, s: 1.1 },
+  { x: 268, s: 0.9 },
+  { x: 1330, s: 0.95 },
+  { x: 1410, s: 0.7 },
+];
+
 const raw = GITHUB.replace("github.com", "raw.githubusercontent.com");
 const composeSnippet = `mkdir hive-mcp && cd hive-mcp
 curl -fsSLO ${raw}/main/compose.yaml
@@ -135,36 +150,175 @@ const connectSnippet = `claude mcp add --transport http hive \\
 
     <main id="main">
       <!-- Hero -->
-      <section class="hero">
-        <svg class="mesh" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <section class="hero scene">
+        <svg class="scene-sky" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <defs>
-            <linearGradient id="link" x1="0" x2="0" y1="1" y2="0">
-              <stop offset="0" stop-color="#dc2626" />
-              <stop offset="0.55" stop-color="#f97316" />
-              <stop offset="1" stop-color="#fbbf24" />
+            <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#120a06" />
+              <stop offset="0.55" stop-color="#141320" />
+              <stop offset="1" stop-color="#1c2b42" />
             </linearGradient>
           </defs>
-          <!-- Isotherms across the room, with heat rising through them. -->
-          <g class="rules">
-            <path d="M0 180 C200 150 400 210 600 180 S1000 150 1200 180" /><path d="M0 300 C200 270 400 330 600 300 S1000 270 1200 300" />
-            <path d="M0 420 C200 390 400 450 600 420 S1000 390 1200 420" /><path d="M0 540 C200 510 400 570 600 540 S1000 510 1200 540" />
+          <rect width="1440" height="900" fill="url(#sky)" />
+          <g class="stars" fill="#f6efea">
+            <circle cx="120" cy="330" r="1.6" /><circle cx="380" cy="250" r="1.4" /><circle cx="560" cy="380" r="1.8" />
+            <circle cx="260" cy="120" r="1.2" /><circle cx="700" cy="90" r="1.3" /><circle cx="760" cy="470" r="1.5" />
+            <circle cx="1340" cy="160" r="1.4" /><circle cx="1220" cy="60" r="1.2" />
           </g>
-          <g class="links">
-            <path d="M120 700 C170 600 70 520 120 420 S170 240 120 120" />
-            <path d="M380 700 C430 610 330 530 380 440 S430 280 380 180" />
-            <path d="M820 700 C870 600 770 520 820 420 S870 250 820 140" />
-            <path d="M1080 700 C1130 610 1030 530 1080 450 S1130 300 1080 200" />
+          <g class="flakes" fill="#e2e8f0">
+            {flakes.map((f) => <circle cx={f.x} cy="-10" r={f.r} style={`animation-duration:${f.dur}s;animation-delay:${f.delay}s`} />)}
           </g>
-          <g class="pulses">
-            <path d="M120 700 C170 600 70 520 120 420 S170 240 120 120" />
-            <path d="M820 700 C870 600 770 520 820 420 S870 250 820 140" />
-            <path d="M1080 700 C1130 610 1030 530 1080 450 S1130 300 1080 200" />
+        </svg>
+        <svg class="scene-art" viewBox="0 0 1440 360" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+          <defs>
+            <linearGradient id="snow" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#b4c2d6" />
+              <stop offset="1" stop-color="#7e90a9" />
+            </linearGradient>
+            <linearGradient id="rad-hot" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#fbbf24" />
+              <stop offset="0.5" stop-color="#f97316" />
+              <stop offset="1" stop-color="#dc2626" />
+            </linearGradient>
+            <linearGradient id="hw-hot" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#fb923c" />
+              <stop offset="1" stop-color="#dc2626" />
+            </linearGradient>
+            <radialGradient id="frost-g" cx="0.5" cy="0.5" r="0.75">
+              <stop offset="0.35" stop-color="#dbeafe" stop-opacity="0.08" />
+              <stop offset="1" stop-color="#e0f2fe" stop-opacity="0.85" />
+            </radialGradient>
+            <radialGradient id="warm-g" cx="0.15" cy="0.75" r="0.9">
+              <stop offset="0" stop-color="#f97316" stop-opacity="0.32" />
+              <stop offset="1" stop-color="#f97316" stop-opacity="0.04" />
+            </radialGradient>
+            <radialGradient id="glow-g" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0" stop-color="#fbbf24" stop-opacity="0.55" />
+              <stop offset="1" stop-color="#fbbf24" stop-opacity="0" />
+            </radialGradient>
+            <clipPath id="cyl-clip"><rect x="986" y="168" width="72" height="130" rx="30" /></clipPath>
+          </defs>
+
+          <!-- Garden: snowy pines either side of the house, a snowman and a fence -->
+          <g class="trees">
+            {trees.map((t) => (
+              <g transform={`translate(${t.x} 318) scale(${t.s})`}>
+                <rect x="-5" y="-22" width="10" height="22" fill="#2a1a12" />
+                <path d="M0 -150 L34 -96 H18 L46 -54 H26 L58 -18 H-58 L-26 -54 H-46 L-18 -96 H-34 Z" fill="#14281f" />
+                <path d="M0 -150 L16 -124 Q0 -116 -16 -124 Z M-18 -96 H18 L28 -82 Q0 -74 -28 -82 Z M-26 -54 H26 L38 -40 Q0 -32 -38 -40 Z" fill="#cbd5e1" opacity="0.85" />
+              </g>
+            ))}
           </g>
-          <g class="nodes">
-            <circle cx="120" cy="420" r="6" /><circle cx="120" cy="120" r="4" /><circle cx="380" cy="440" r="8" />
-            <circle cx="380" cy="180" r="5" /><circle cx="820" cy="420" r="9" /><circle cx="820" cy="140" r="5" />
-            <circle cx="1080" cy="450" r="6" /><circle cx="1080" cy="200" r="4" />
+          <g fill="#3a2a20">
+            <rect x="1124" y="290" width="316" height="5" /><rect x="1124" y="302" width="316" height="5" />
+            {[1134, 1250, 1310, 1370, 1430].map((x) => <rect x={x} y="280" width="8" height="38" rx="2" />)}
           </g>
+          <g transform="translate(1196 318)">
+            <circle cy="-26" r="28" fill="#cbd5e1" /><circle cy="-70" r="20" fill="#d6dee9" /><circle cy="-102" r="14" fill="#e2e8f0" />
+            <path d="M0 -102 l16 3 l-16 3 z" fill="#f97316" />
+            <circle cx="-5" cy="-106" r="2" fill="#1e293b" /><circle cx="5" cy="-106" r="2" fill="#1e293b" />
+            <path d="M-14 -88 q14 8 28 0 v7 q-14 7 -28 0 z" fill="#dc2626" />
+            <rect x="-11" y="-126" width="22" height="12" fill="#1e293b" /><rect x="-16" y="-116" width="32" height="4" fill="#1e293b" />
+          </g>
+
+          <!-- The house, cut away -->
+          <path d="M316 130 L720 26 L1124 130 Z" fill="#2a1914" />
+          <path d="M316 130 L720 26 L1124 130" fill="none" stroke="#d6dee9" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" />
+          <rect x="340" y="128" width="760" height="190" fill="#4a2a1c" />
+          <rect x="926" y="58" width="12" height="40" fill="#6b5b50" />
+          <g class="steam" fill="none" stroke="#cbd5e1" stroke-width="5" stroke-linecap="round">
+            <path d="M932 52 q-8 -8 0 -16 q8 -8 0 -16" /><path d="M946 50 q-6 -6 0 -12" />
+          </g>
+          <path d="M330 132 l4 16 l4 -16 z M350 132 l3 11 l3 -11 z M1086 132 l3 12 l3 -12 z M1102 132 l4 17 l4 -17 z" fill="#cbd5e1" />
+
+          <!-- Lounge -->
+          <rect x="354" y="140" width="516" height="178" fill="#2b2230" />
+          <rect x="354" y="300" width="516" height="18" fill="#3a2619" />
+          <rect x="386" y="148" width="132" height="94" rx="4" fill="#5b4636" />
+          <rect x="392" y="154" width="120" height="82" fill="#0f1d33" />
+          <path d="M392 226 Q430 214 470 224 T512 220 V236 H392 Z" fill="#94a3b8" />
+          <g fill="#e2e8f0"><circle cx="410" cy="170" r="1.6" /><circle cx="448" cy="186" r="1.3" /><circle cx="490" cy="166" r="1.5" /><circle cx="476" cy="204" r="1.2" /><circle cx="420" cy="206" r="1.4" /></g>
+          <g class="frost">
+            <rect x="392" y="154" width="120" height="82" fill="url(#frost-g)" />
+            <g stroke="#f0f9ff" stroke-width="1.4" stroke-linecap="round" opacity="0.9">
+              <path d="M402 162 l10 10 M412 162 l-10 10 M407 160 v14 M400 167 h14" />
+              <path d="M496 222 l10 10 M506 222 l-10 10 M501 220 v14 M494 227 h14" />
+              <path d="M500 160 l7 7 M507 160 l-7 7 M398 220 l7 7 M405 220 l-7 7" />
+            </g>
+          </g>
+          <rect x="450" y="154" width="4" height="82" fill="#5b4636" />
+          <rect x="392" y="193" width="120" height="4" fill="#5b4636" />
+          <rect x="382" y="240" width="140" height="7" rx="2" fill="#6b5444" />
+          <!-- Radiator -->
+          <ellipse class="rad-glow" cx="452" cy="262" rx="120" ry="70" fill="url(#glow-g)" />
+          <g class="waves" fill="none" stroke="#fdba74" stroke-width="3" stroke-linecap="round">
+            <path d="M414 250 q-7 -10 0 -20 q7 -10 0 -20" /><path d="M440 250 q-7 -10 0 -20 q7 -10 0 -20" />
+            <path d="M466 250 q-7 -10 0 -20 q7 -10 0 -20" /><path d="M492 250 q-7 -10 0 -20 q7 -10 0 -20" />
+          </g>
+          <rect x="400" y="294" width="6" height="12" fill="#4b5563" /><rect x="498" y="294" width="6" height="12" fill="#4b5563" />
+          <rect x="392" y="256" width="120" height="40" rx="5" fill="#5b6b80" />
+          <rect class="rad-hot" x="392" y="256" width="120" height="40" rx="5" fill="url(#rad-hot)" />
+          <g stroke="rgba(0,0,0,0.28)" stroke-width="2">
+            {[404, 416, 428, 440, 452, 464, 476, 488, 500].map((x) => <line x1={x} y1="260" x2={x} y2="292" />)}
+          </g>
+          <!-- Pendant lamp and sofa -->
+          <line x1="756" y1="140" x2="756" y2="168" stroke="#6b5b50" stroke-width="2" />
+          <ellipse cx="756" cy="200" rx="70" ry="44" fill="url(#glow-g)" opacity="0.6" />
+          <path d="M738 182 L744 166 H768 L774 182 Z" fill="#f59e0b" />
+          <rect x="672" y="232" width="168" height="44" rx="14" fill="#9a3412" />
+          <rect x="662" y="266" width="188" height="30" rx="8" fill="#b45309" />
+          <rect x="652" y="250" width="26" height="48" rx="10" fill="#7c2d12" /><rect x="834" y="250" width="26" height="48" rx="10" fill="#7c2d12" />
+          <rect x="690" y="240" width="46" height="30" rx="8" fill="#fbbf24" opacity="0.85" />
+          <path d="M770 262 q20 -22 52 -8 l2 38 h-60 z" fill="#2563eb" opacity="0.75" />
+          <rect x="664" y="296" width="6" height="8" fill="#2a1a12" /><rect x="842" y="296" width="6" height="8" fill="#2a1a12" />
+          <rect class="tint-cold" x="354" y="140" width="516" height="178" fill="#3b82f6" />
+          <rect class="tint-warm" x="354" y="140" width="516" height="178" fill="url(#warm-g)" />
+          <!-- Thermostat on the wall -->
+          <g class="dial">
+            <circle cx="594" cy="196" r="54" fill="#ece5dd" />
+            <circle cx="594" cy="196" r="46" fill="#120b08" />
+            <circle cx="594" cy="196" r="38" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="5" stroke-dasharray="179 239" stroke-linecap="round" transform="rotate(135 594 196)" />
+            <circle class="dial-arc" cx="594" cy="196" r="38" fill="none" stroke-width="5" stroke-linecap="round" transform="rotate(135 594 196)" />
+            <circle class="dial-target" cx="632" cy="196" r="3.5" transform="rotate(297 594 196)" />
+            <text class="dial-label t-cold" x="594" y="181" text-anchor="middle">NOW</text>
+            <text class="dial-label t-boost" x="594" y="181" text-anchor="middle">BOOSTING</text>
+            <text class="dial-temp t-idle" x="594" y="205" text-anchor="middle">--.-°</text>
+            <text class="dial-temp t-cold" x="594" y="205" text-anchor="middle">16.5°</text>
+            <text class="dial-temp t-boost" x="594" y="205" text-anchor="middle">21°</text>
+            <text class="dial-sub t-cold" x="594" y="221" text-anchor="middle">SET 19°</text>
+            <text class="dial-sub t-boost" x="594" y="221" text-anchor="middle">TARGET</text>
+          </g>
+          <g class="tag dial-tag">
+            <rect x="538" y="260" width="112" height="24" rx="12" />
+            <text class="t-cold" x="594" y="276" text-anchor="middle">SCHEDULE</text>
+            <text class="t-boost" x="594" y="276" text-anchor="middle">BOOST 60 min</text>
+          </g>
+
+          <!-- Divider and airing cupboard -->
+          <rect x="870" y="140" width="12" height="178" fill="#4a2a1c" />
+          <rect x="882" y="140" width="204" height="178" fill="#1d1613" />
+          <rect x="882" y="300" width="204" height="18" fill="#2c1e15" />
+          <path d="M932 222 V309 H403 V302" fill="none" stroke="#4b5563" stroke-width="5" stroke-linejoin="round" />
+          <path class="pipe-hot" d="M932 222 V309 H403 V302" fill="none" stroke="#fb923c" stroke-width="5" stroke-linejoin="round" stroke-dasharray="10 8" />
+          <path d="M966 200 H986" stroke="#4b5563" stroke-width="5" />
+          <rect x="898" y="150" width="68" height="72" rx="6" fill="#ece5dd" />
+          <rect x="914" y="188" width="36" height="22" rx="4" fill="#120b08" />
+          <path class="flame" d="M932 208 q-9 -6 -4 -14 q2 4 4 4 q-1 -6 4 -11 q2 8 6 10 q2 6 -4 11 z" fill="#f97316" />
+          <circle class="boiler-led" cx="954" cy="164" r="3.5" />
+          <rect x="986" y="168" width="72" height="130" rx="30" fill="#24364f" />
+          <g clip-path="url(#cyl-clip)"><rect class="hw-fill" x="986" y="168" width="72" height="130" fill="url(#hw-hot)" /></g>
+          <rect x="986" y="168" width="72" height="130" rx="30" fill="none" stroke="#b87333" stroke-width="4" />
+          <path d="M1000 186 q8 -6 16 0" stroke="rgba(255,255,255,0.35)" stroke-width="3" fill="none" stroke-linecap="round" />
+          <g class="tag hw-tag">
+            <rect x="892" y="236" width="80" height="46" rx="10" />
+            <text class="hw-head" x="932" y="254" text-anchor="middle">HOT WATER</text>
+            <text class="hw-val t-cold" x="932" y="273" text-anchor="middle">off</text>
+            <text class="hw-val t-boost" x="932" y="273" text-anchor="middle">30 min</text>
+          </g>
+
+          <!-- Snow on the ground -->
+          <path d="M0 322 Q180 312 340 318 H1100 Q1280 310 1440 322 V360 H0 Z" fill="url(#snow)" />
+          <text class="caption" x="720" y="345" text-anchor="middle">example home</text>
         </svg>
 
         <div class="wrap hero-grid">
@@ -186,26 +340,26 @@ const connectSnippet = `claude mcp add --transport http hive \\
           </div>
 
           <div class="chat" aria-label="Example conversation">
-            <div class="chat-bar"><span></span><span></span><span></span><em>Claude · hive</em></div>
+            <div class="chat-bar"><span></span><span></span><span></span><em>Claude · hive · writes on</em></div>
             <div class="chat-body" id="chat">
-              <div class="msg user" data-step="0">It's freezing in here. Can you warm the house up? I'd like a bath later too.</div>
+              <div class="msg user" data-step="0">It's freezing in here. What's the heating doing?</div>
               <div class="calls" data-step="1">
-                <span class="call"><i></i>hive_get_overview<b>fresh</b></span>
+                <span class="call"><i></i>hive_get_heating<b>living room</b></span>
                 <span class="call"><i></i>hive_get_hot_water</span>
               </div>
               <div class="msg bot" data-step="2">
-                The living room is <mark>17.5 °C</mark>: the heating is on its schedule, which holds 16 °C until 17:00. The hot
-                water is off until 18:00.
-                <br /><br />Shall I boost the heating to 21 °C for an hour, and the hot water for 30 minutes?
+                The living room is <mark>16.5 °C</mark>. The heating is on its schedule with a target of <mark>19 °C</mark>, so it's
+                still catching up. The hot water is off until 06:30.
+                Want me to give it a boost?
               </div>
-              <div class="msg user" data-step="3">Yes please.</div>
+              <div class="msg user" data-step="3">Boost it to 21° for an hour, and give me hot water for 30 minutes.</div>
               <div class="calls" data-step="4">
                 <span class="call write"><i></i>hive_boost_heating<b>21 °C · 60 min</b></span>
                 <span class="call write"><i></i>hive_boost_hot_water<b>30 min</b></span>
               </div>
               <div class="msg bot" data-step="5">
-                Done. The heating is boosting to <mark>21 °C until 15:40</mark>, then goes back to its schedule, and the water will be
-                hot in about half an hour. 🔥 One more thing: the bedroom radiator valve's battery is down to <mark>20%</mark>.
+                Done. The heating is boosting to <mark>21 °C until 19:40</mark>, then goes back to its schedule, and the hot water
+                is on for <mark>30 minutes</mark>, so a bath will be ready by 19:10. 🔥
               </div>
             </div>
           </div>
@@ -441,31 +595,49 @@ const connectSnippet = `claude mcp add --transport http hive \\
         });
       }
 
-      // Play the example conversation once it scrolls into view.
+      // Play the example conversation when the hero is on screen, and loop it. Steps also
+      // switch the scene: the status reply lights the thermostat, the boost warms the house.
+      const hero = document.querySelector<HTMLElement>(".hero.scene");
       const chat = document.getElementById("chat");
       const steps = chat ? [...chat.querySelectorAll<HTMLElement>("[data-step]")] : [];
+      const sceneAt: Record<number, string> = { 2: "status-on", 5: "boost-on" };
       const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (chat && !reduce) {
+      if (hero && chat && reduce) {
+        hero.classList.add(...Object.values(sceneAt));
+      } else if (hero && chat) {
         chat.classList.add("animate");
         const delays = [300, 900, 1900, 1900, 900, 1700];
+        let timers: number[] = [];
+        let visible = false;
+        let running = false;
+        const reset = () => {
+          timers.forEach(clearTimeout);
+          timers = [];
+          steps.forEach((el) => el.classList.remove("shown"));
+          chat.querySelectorAll(".call").forEach((c) => c.classList.remove("done"));
+          hero.classList.remove(...Object.values(sceneAt));
+        };
         const play = () => {
+          running = true;
+          reset();
           let t = 0;
           steps.forEach((el, i) => {
             t += delays[i] ?? 1000;
-            setTimeout(() => {
+            timers.push(window.setTimeout(() => {
               el.classList.add("shown");
+              if (sceneAt[i]) hero.classList.add(sceneAt[i]);
               for (const [j, c] of [...el.querySelectorAll<HTMLElement>(".call")].entries()) {
-                setTimeout(() => c.classList.add("done"), 450 + j * 380);
+                timers.push(window.setTimeout(() => c.classList.add("done"), 450 + j * 380));
               }
-            }, t);
+            }, t));
           });
+          // Hold the finished scene for a while, then start again if the hero is still in view.
+          timers.push(window.setTimeout(() => (visible ? play() : (running = false)), t + 7000));
         };
-        new IntersectionObserver((entries, obs) => {
-          if (entries.some((e) => e.isIntersecting)) {
-            play();
-            obs.disconnect();
-          }
-        }, { threshold: 0.35 }).observe(chat);
+        new IntersectionObserver((entries) => {
+          visible = entries.some((e) => e.isIntersecting);
+          if (visible && !running) play();
+        }, { threshold: 0.2 }).observe(chat);
       }
     </script>
 
@@ -551,16 +723,66 @@ const connectSnippet = `claude mcp add --transport http hive \\
         mask-image: radial-gradient(60% 60% at 50% 40%, #000 30%, transparent 80%);
         opacity: 0.3;
       }
-      .mesh { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.55; }
-      .mesh .rules path { fill: none; stroke: #fdba74; stroke-opacity: 0.12; stroke-width: 1; stroke-dasharray: 2 6; }
-      .mesh .links path { fill: none; stroke: url(#link); stroke-width: 1.4; stroke-opacity: 0.4; stroke-linejoin: round; }
-      .mesh .pulses path { fill: none; stroke: #fde68a; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 6 600; animation: pulse 7s linear infinite; }
-      .mesh .pulses path:nth-child(2) { animation-delay: -2.5s; animation-duration: 9s; }
-      .mesh .pulses path:nth-child(3) { animation-delay: -4s; animation-duration: 5s; }
-      .mesh .nodes circle { fill: #fed7aa; filter: drop-shadow(0 0 6px #f97316); animation: blink 4s ease-in-out infinite; }
-      .mesh .nodes circle:nth-child(3n) { animation-delay: -1.3s; }
-      .mesh .nodes circle:nth-child(3n + 1) { animation-delay: -2.6s; }
-      @keyframes pulse { from { stroke-dashoffset: 600; } to { stroke-dashoffset: 0; } }
+      /* The illustrated scene behind the hero; the chat steps switch its states. */
+      .hero.scene { padding-top: 48px; padding-bottom: 345px; }
+      .hero.scene .chat-body { padding: 18px 20px; gap: 11px; min-height: 0; }
+      .hero.scene::before { display: none; }
+      /* Snow that runs past the edges of the fixed-width scene on wide screens. */
+      .hero.scene::after { inset: auto 0 0 0; height: 38px; background: linear-gradient(#a5b4c9, #7e90a9); mask-image: none; opacity: 1; z-index: -2; }
+      .scene-sky { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -3; }
+      .scene-sky .stars circle { animation: blink 3s ease-in-out infinite; }
+      .scene-sky .stars circle:nth-child(2n) { animation-delay: -1.5s; }
+      .scene-sky .flakes circle { opacity: 0.55; animation: fall 12s linear infinite; }
+      .scene-art { position: absolute; left: 50%; bottom: 0; width: 1440px; height: 360px; transform: translateX(-50%); z-index: -1; }
+      .scene-art .caption { fill: #33435a; font: 500 12px var(--mono); letter-spacing: 0.08em; }
+      /* Cold: frosty window, blue room, thermostat reading low. */
+      .scene-art .frost { opacity: 0.95; transition: opacity 3s ease; }
+      .scene-art .tint-cold { opacity: 0.13; transition: opacity 2.4s ease; }
+      .scene-art .tint-warm, .scene-art .rad-hot, .scene-art .rad-glow, .scene-art .waves, .scene-art .pipe-hot,
+      .scene-art .flame, .scene-art .steam { opacity: 0; transition: opacity 1.6s ease; }
+      .scene-art .rad-hot { transition-duration: 2.6s; }
+      .scene-art .waves path { animation: rise 1.8s ease-in-out infinite; }
+      .scene-art .waves path:nth-child(2) { animation-delay: 0.3s; }
+      .scene-art .waves path:nth-child(3) { animation-delay: 0.6s; }
+      .scene-art .waves path:nth-child(4) { animation-delay: 0.9s; }
+      .scene-art .steam path { animation: rise 2.4s ease-in-out infinite; }
+      .scene-art .steam path:nth-child(2) { animation-delay: 0.8s; }
+      .scene-art .pipe-hot { animation: flow 0.9s linear infinite; }
+      .scene-art .flame { transform-box: fill-box; transform-origin: 50% 100%; }
+      .scene-art .boiler-led { fill: #475569; transition: fill 0.6s; }
+      .scene-art .hw-fill { transform-box: fill-box; transform-origin: 50% 100%; transform: scaleY(0); transition: transform 4s ease; }
+      .scene-art .dial-arc { stroke: #60a5fa; stroke-dasharray: 0 239; transition: stroke-dasharray 1.8s ease, stroke 1.2s ease; }
+      .scene-art .dial-target { fill: #e0f2fe; opacity: 0; transition: opacity 0.8s; }
+      .scene-art .dial-label { font: 600 9px var(--mono); letter-spacing: 0.1em; }
+      .scene-art .dial-temp { font: 700 25px var(--display); }
+      .scene-art .dial-sub { font: 600 9.5px var(--mono); letter-spacing: 0.08em; }
+      .scene-art .t-idle { fill: #6b5b50; }
+      .scene-art .t-cold { fill: #93c5fd; }
+      .scene-art .t-boost { fill: #fdba74; }
+      .scene-art .t-cold, .scene-art .t-boost { opacity: 0; transition: opacity 0.8s ease; }
+      .scene-art .t-idle { transition: opacity 0.8s ease; }
+      .scene-art .tag { opacity: 0; transition: opacity 0.8s ease; }
+      .scene-art .tag rect { fill: rgba(18, 11, 8, 0.88); stroke: rgba(147, 197, 253, 0.55); stroke-width: 1.5; transition: stroke 1s; }
+      .scene-art .tag text { font: 600 11.5px var(--mono); letter-spacing: 0.05em; }
+      .scene-art .hw-head { fill: #b3a49a; font-size: 9.5px !important; }
+      .scene-art .hw-val { font-size: 14px !important; }
+      .hero.status-on .scene-art .t-idle { opacity: 0; }
+      .hero.status-on .scene-art .t-cold, .hero.status-on .scene-art .tag, .hero.status-on .scene-art .dial-target { opacity: 1; }
+      .hero.status-on .scene-art .dial-arc { stroke-dasharray: 77.6 239; }
+      /* Boosted: the dial climbs to 21°, the boiler fires, the radiator and cylinder heat up. */
+      .hero.boost-on .scene-art .t-cold, .hero.boost-on .scene-art .dial-target, .hero.boost-on .scene-art .frost, .hero.boost-on .scene-art .tint-cold { opacity: 0; }
+      .hero.boost-on .scene-art .t-boost, .hero.boost-on .scene-art .tint-warm, .hero.boost-on .scene-art .rad-hot, .hero.boost-on .scene-art .rad-glow,
+      .hero.boost-on .scene-art .waves, .hero.boost-on .scene-art .pipe-hot, .hero.boost-on .scene-art .flame, .hero.boost-on .scene-art .steam { opacity: 1; }
+      .hero.boost-on .scene-art .dial-arc { stroke: #fb923c; stroke-dasharray: 131.3 239; }
+      .hero.boost-on .scene-art .tag rect { stroke: rgba(251, 146, 60, 0.75); }
+      .hero.boost-on .scene-art .hw-fill { transform: scaleY(1); }
+      .hero.boost-on .scene-art .boiler-led { fill: #34d399; }
+      .hero.boost-on .scene-art .flame { animation: flicker 0.5s ease-in-out infinite alternate; }
+      .hero.scene .hero-grid { grid-template-columns: minmax(0, 1fr) 440px; align-items: start; }
+      @keyframes rise { 0%, 100% { transform: translateY(0); opacity: 0.35; } 50% { transform: translateY(-8px); opacity: 1; } }
+      @keyframes flow { to { stroke-dashoffset: -18; } }
+      @keyframes flicker { from { transform: scale(1, 0.85); } to { transform: scale(0.92, 1.1); } }
+      @keyframes fall { from { transform: translate(0, 0); } to { transform: translate(-40px, 920px); } }
       @keyframes blink { 50% { opacity: 0.45; } }
 
       .hero-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 56px; align-items: center; }
@@ -599,8 +821,9 @@ const connectSnippet = `claude mcp add --transport http hive \\
 
       /* Chat demo */
       .chat {
-        border-radius: 20px; border: 1px solid var(--line);
-        background: linear-gradient(180deg, rgba(38, 20, 12, 0.9), rgba(20, 11, 7, 0.92));
+        border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.12);
+        background: linear-gradient(180deg, rgba(38, 20, 12, 0.84), rgba(20, 11, 7, 0.86));
+        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
         box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.02) inset, 0 0 80px -20px rgba(249, 115, 22, 0.3);
         overflow: hidden;
       }
@@ -754,6 +977,10 @@ const connectSnippet = `claude mcp add --transport http hive \\
         .examples, .features { grid-template-columns: repeat(2, 1fr); }
         .steps { grid-template-columns: minmax(0, 1fr); }
         .chat-body { min-height: 0; }
+        .hero.scene { padding-bottom: 0; display: flex; flex-direction: column; }
+        .hero.scene::after { display: none; }
+        .hero.scene .hero-grid { grid-template-columns: minmax(0, 1fr); }
+        .hero.scene .scene-art { order: 2; position: relative; left: auto; bottom: auto; transform: none; display: block; width: 100%; height: 300px; margin-top: 32px; }
       }
       @media (max-width: 640px) {
         .wrap { width: calc(100% - 32px); }
@@ -766,6 +993,8 @@ const connectSnippet = `claude mcp add --transport http hive \\
         .compat > div { padding: 24px; }
         .pull { display: flex; }
         .call { flex-wrap: wrap; }
+        /* Show the whole house, from the radiator to the hot water cylinder. */
+        .hero.scene .scene-art { height: auto; aspect-ratio: 700 / 360; margin-top: 24px; }
       }
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { animation: none !important; transition: none !important; }
