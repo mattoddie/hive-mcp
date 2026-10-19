@@ -3,9 +3,11 @@ package hive_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -431,5 +433,35 @@ func TestDeletedTokenFileMeansLoggedOut(t *testing.T) {
 	}
 	if st := c.Auth.Status(); st["logged_in"] != false || st["device_remembered"] != false {
 		t.Errorf("status: %v", st)
+	}
+}
+
+func TestConcurrentSavesNeverCorruptTheTokenFile(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "data", "tokens.json")
+	var wg sync.WaitGroup
+	for i := range 20 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// Separate stores, like two processes that both run as PID 1.
+			if err := (hive.TokenStore{File: file}).Save(&hive.Tokens{Username: fmt.Sprintf("user-%d@example.com", i), IDToken: strings.Repeat("x", 4096)}); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
+	saved, err := hive.TokenStore{File: file}.Load()
+	if err != nil || saved == nil || !strings.HasPrefix(saved.Username, "user-") {
+		t.Fatalf("token file: %+v %v", saved, err)
+	}
+	entries, _ := os.ReadDir(filepath.Dir(file))
+	if len(entries) != 1 {
+		t.Errorf("temporary files left behind: %v", entries)
+	}
+	if st, _ := os.Stat(file); st.Mode().Perm() != 0o600 {
+		t.Errorf("mode %v", st.Mode().Perm())
+	}
+	if st, _ := os.Stat(filepath.Dir(file)); st.Mode().Perm() != 0o700 {
+		t.Errorf("directory mode %v", st.Mode().Perm())
 	}
 }

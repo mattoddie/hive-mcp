@@ -16,7 +16,7 @@ ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
       -ldflags "-s -w -X github.com/mattoddie/hive-mcp/internal/tools.Version=${VERSION}" \
       -o /out/hive-mcp ./cmd/hive-mcp \
- && mkdir -p /out/data
+ && mkdir -p -m 0700 /out/data
 
 # Distroless: no shell, no package manager, just CA certificates, tzdata and a
 # non-root user (65532), so there is very little for CVE scanners to find.
@@ -27,8 +27,9 @@ LABEL org.opencontainers.image.title="hive-mcp" \
       org.opencontainers.image.documentation="https://hive-mcp.mattoddie.dev/docs/" \
       org.opencontainers.image.licenses="MIT"
 COPY --from=build /out/hive-mcp /hive-mcp
-# The login lives here (tokens and the remembered device); mount a volume so it survives restarts.
-COPY --from=build --chown=65532:65532 /out/data /data
+# The login lives here (tokens and the remembered device): mode 0700, owned by
+# nonroot, which a new named volume copies. Mount a volume so it survives restarts.
+COPY --from=build --chown=65532:65532 --chmod=0700 /out/data /data
 ENV MCP_TRANSPORT=http \
     MCP_HTTP_HOST=0.0.0.0 \
     MCP_HTTP_PORT=8080 \

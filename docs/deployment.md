@@ -54,7 +54,7 @@ To listen on one interface only, such as a LAN address or localhost when you use
 The server keeps its Hive login in `/data/tokens.json`: the current tokens, plus the remembered device's key and secret password that let it log in again without an SMS code. It changes about once an hour while the server is in use, and it must survive restarts and upgrades.
 
 - Keep the named volume (`hive-data`) or a bind mount at `/data`. The root filesystem is read-only, so `/data` is the only place the server can write.
-- If you use a bind mount, make the directory writable by the container's user, UID `65532`: `mkdir data && sudo chown 65532:65532 data`.
+- If you use a bind mount, make the directory writable only by the container's user, UID `65532`: `mkdir -m 700 data && sudo chown 65532:65532 data`.
 - `docker compose down` keeps the volume. `docker compose down -v` deletes it, and with it the login. You'd need a new SMS code to log in again.
 - Treat the volume and any backups of it like a password. See [Security](security.md#the-token-file).
 

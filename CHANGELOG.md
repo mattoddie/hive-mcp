@@ -28,6 +28,8 @@ This release follows a security review. Read **Breaking changes** before upgradi
 - `hive-mcp healthcheck` checks the configured `MCP_HTTP_HOST` and port (including `MCP_HTTP_PORT_FILE`) instead of always `127.0.0.1` and `MCP_HTTP_PORT`.
 - `HIVE_API_URL`, `HIVE_SSO_URL` and `HIVE_COGNITO_URL` must use `https://` (plain `http://` only to a loopback address) and can't contain credentials. Requests to Hive and Cognito never follow redirects, which could otherwise carry tokens to another host.
 - Only a `401` from Hive refreshes the login (a `403` did too). A `POST` is retried only after a `429`, never after a `502` or `503`. Responses over 64 MiB fail with a clear error instead of being truncated.
+- The token file is saved through a uniquely named temporary file (`os.CreateTemp`), synced before the rename. It used to be `<file>.<pid>.tmp`, which two containers (both PID 1) sharing a volume could write at the same time.
+- The image creates `/data` with mode `0700`, as the docs said; it was `0755`.
 
 ## [0.1.1] - 2026-10-16
 

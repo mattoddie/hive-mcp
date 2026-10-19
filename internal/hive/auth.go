@@ -84,20 +84,50 @@ func (s TokenStore) Load() (*Tokens, error) {
 	return &t, nil
 }
 
-// Save writes the tokens via a temporary file and rename, so a crash never leaves a half-written file.
+// Save writes the tokens to a new temporary file in the same directory,
+// syncs it and renames it over the token file, so a crash never leaves a
+// half-written file and two processes saving at once (both PID 1 in their
+// containers) can't write to the same temporary file.
 func (s TokenStore) Save(t *Tokens) error {
-	if err := os.MkdirAll(filepath.Dir(s.File), 0o700); err != nil {
+	dir := filepath.Dir(s.File)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	b, _ := json.MarshalIndent(t, "", "  ")
-	tmp := fmt.Sprintf("%s.%d.tmp", s.File, os.Getpid())
-	if err := os.WriteFile(tmp, append(b, '\n'), 0o600); err != nil {
+	f, err := os.CreateTemp(dir, "."+filepath.Base(s.File)+".*.tmp") // mode 0600
+	if err != nil {
 		return err
 	}
-	if err := os.Chmod(tmp, 0o600); err != nil {
+	tmp := f.Name()
+	saved := false
+	defer func() {
+		if !saved {
+			f.Close()
+			os.Remove(tmp)
+		}
+	}()
+	if err := f.Chmod(0o600); err != nil {
 		return err
 	}
-	return os.Rename(tmp, s.File)
+	if _, err := f.Write(append(b, '\n')); err != nil {
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, s.File); err != nil {
+		return err
+	}
+	saved = true
+	// Make the rename itself durable; not every filesystem supports this.
+	if d, err := os.Open(dir); err == nil {
+		_ = d.Sync()
+		d.Close()
+	}
+	return nil
 }
 
 // Delete removes the token file.

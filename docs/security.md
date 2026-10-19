@@ -45,7 +45,7 @@ The best defence is to limit what's possible, not to rely on the model behaving.
 - the remembered device's key, group key and **device password**: a random secret hive-mcp made up and registered with Hive's login service, which lets it skip the SMS code,
 - the account's username and the Cognito pool it belongs to.
 
-It's written atomically with mode `0600` in a directory with mode `0700`, owned by the container's non-root user.
+It's written atomically (a new temporary file, synced, then renamed) with mode `0600`. In the image, `/data` has mode `0700` and belongs to the container's non-root user, and a new named volume copies that. With a bind mount, set it up the same way (see [Deployment](deployment.md)).
 
 - Treat the file, the volume and any backups of it like a password. Don't commit it, copy it to other machines, or put it in a shared folder. `tokens.json` is in `.gitignore` and `.dockerignore`.
 - To log hive-mcp out, run `hive-mcp logout`. It asks Hive to forget the remembered device and revoke the refresh token, then deletes the file. A running server treats a deleted token file as logged out. Changing your Hive password means a copy of the file can't be used to log in again, though its current tokens may keep working until they expire.
