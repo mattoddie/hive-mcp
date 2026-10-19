@@ -94,7 +94,7 @@ Or, with the local binary:
 }
 ```
 
-Restart Claude Desktop. The tools appear under the tools (🔨) menu, and the prompts appear under **+ → Add from hive**. If you haven't logged in yet, ask Claude to *"log in to Hive"*: it uses `hive_auth_start`, Hive texts you a code, and you tell Claude the code so it can call `hive_auth_complete`.
+Restart Claude Desktop. The tools appear under the tools (🔨) menu, and the prompts appear under **+ → Add from hive**. If you haven't logged in yet, either run `hive-mcp login` once, or add `"-e", "HIVE_ALLOW_LOGIN_TOOLS=true"` to `args` and ask Claude to *"log in to Hive"*: it uses `hive_auth_start`, Hive texts you a code, and you tell Claude the code so it can call `hive_auth_complete`.
 
 To turn on writes, add `"-e", "HIVE_ALLOW_WRITES=true"` to `args` (or `"HIVE_ALLOW_WRITES": "true"` to `env` for the binary).
 
@@ -179,7 +179,7 @@ To log in for stdio use, run the login command against the same volume once. It 
 docker run -it --rm --env-file /path/to/hive.env -v hive-data:/data ghcr.io/mattoddie/hive-mcp:latest login
 ```
 
-With the local binary, run `hive-mcp login` with the same environment instead. The login goes to `~/.config/hive-mcp/tokens.json`. You can also log in from the chat with the `hive_auth_start` and `hive_auth_complete` tools.
+With the local binary, run `hive-mcp login` with the same environment instead. The login goes to `~/.config/hive-mcp/tokens.json`. With `HIVE_ALLOW_LOGIN_TOOLS=true` you can also log in from the chat with the `hive_auth_start` and `hive_auth_complete` tools.
 
 Tips:
 

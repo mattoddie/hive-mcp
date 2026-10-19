@@ -52,10 +52,15 @@ const (
 	pendingLoginTTL = 3 * time.Minute
 	// reloginBackoff stops repeated failed logins, which could get the account locked.
 	reloginBackoff = 5 * time.Minute
+	// codeCooldown is the least time between two logins that text an SMS code,
+	// so a loop (or a model) can't keep sending text messages.
+	codeCooldown = time.Minute
+	// maxCodeAttempts is how many wrong SMS codes a pending login takes before it has to start again.
+	maxCodeAttempts = 5
 )
 
 // ErrNotLoggedIn is returned when there are no tokens and the server can't log in by itself.
-var ErrNotLoggedIn = errors.New("not logged in to Hive. Run `hive-mcp login` once (in Docker: `docker compose run --rm hive-mcp login`) to enter the SMS code and remember this server, or use the hive_auth_start tool")
+var ErrNotLoggedIn = errors.New("not logged in to Hive. Run `hive-mcp login` once (in Docker: `docker compose run --rm hive-mcp login`) to enter the SMS code and remember this server, or use the hive_auth_start tool if HIVE_ALLOW_LOGIN_TOOLS is on")
 
 // TokenStore reads and writes the token file atomically, readable only by its owner.
 type TokenStore struct{ File string }
@@ -110,6 +115,7 @@ type pendingLogin struct {
 	userID   string // USER_ID_FOR_SRP
 	username string
 	created  time.Time
+	attempts int // wrong codes entered so far
 }
 
 // LoginResult describes a login step without revealing any secrets.
@@ -143,7 +149,9 @@ type Auth struct {
 	ids            [2]string // discovered pool and client IDs
 	lastError      string
 	persistWarning string
-	reloginFailed  time.Time
+	reloginFailed  time.Time // last failed automatic login, for any reason
+	loginFailed    time.Time // last login Cognito refused for a reason other than an unknown device
+	codeSent       time.Time // last time a login made Hive text an SMS code
 	fileMod        time.Time // modification time of the token file when last read or written
 
 	refreshMu sync.Mutex // serialises refreshes and logins
@@ -184,7 +192,7 @@ func (a *Auth) reloadLocked() {
 	}
 	a.tokens = t
 	a.lastError = ""
-	a.reloginFailed = time.Time{}
+	a.reloginFailed, a.loginFailed = time.Time{}, time.Time{}
 }
 
 func normaliseUsername(u string) string { return strings.ToLower(strings.TrimSpace(u)) }
@@ -372,6 +380,9 @@ func (a *Auth) relogin(ctx context.Context) (string, error) {
 	if err != nil {
 		a.mu.Lock()
 		a.reloginFailed = a.now()
+		if credentialFailure(err) {
+			a.loginFailed = a.reloginFailed
+		}
 		a.mu.Unlock()
 		return "", a.fail(loginError(err))
 	}
@@ -517,6 +528,11 @@ func loginError(err error) error {
 // StartLogin logs in with the username and password. With a remembered
 // device, that's usually the end of it. Otherwise Hive texts a code to the
 // account's phone, and CompleteLogin finishes with it.
+//
+// A model can call it (hive_auth_start), so it won't try again within
+// reloginBackoff of a login Hive refused, which stops a wrong password from
+// getting the account locked, or within codeCooldown of the last SMS code,
+// which stops it from texting the user over and over.
 func (a *Auth) StartLogin(ctx context.Context) (*LoginResult, error) {
 	a.refreshMu.Lock()
 	defer a.refreshMu.Unlock()
@@ -524,9 +540,26 @@ func (a *Auth) StartLogin(ctx context.Context) (*LoginResult, error) {
 	a.reloadLocked()
 	username, password := normaliseUsername(a.cfg.Username), a.cfg.Password
 	device := a.deviceLocked()
+	failed, sent := a.loginFailed, a.codeSent
 	a.mu.Unlock()
 	if username == "" || password == "" {
 		return nil, errors.New("set HIVE_USERNAME (the email address you use in the Hive app) and HIVE_PASSWORD before logging in")
+	}
+	now := a.now()
+	if !failed.IsZero() && now.Sub(failed) < reloginBackoff {
+		return nil, fmt.Errorf("hive refused a login recently; not trying again until %s to avoid locking the account. Check HIVE_USERNAME and HIVE_PASSWORD in the meantime", failed.Add(reloginBackoff).UTC().Format(time.RFC3339))
+	}
+	// Only a login without a remembered device texts a code.
+	coolingDown := func() error {
+		if !sent.IsZero() && now.Sub(sent) < codeCooldown {
+			return fmt.Errorf("hive texted a code less than a minute ago. Enter that code (hive_auth_complete), or wait until %s before asking for a new one", sent.Add(codeCooldown).UTC().Format(time.RFC3339))
+		}
+		return nil
+	}
+	if device == nil {
+		if err := coolingDown(); err != nil {
+			return nil, err
+		}
 	}
 	c, err := a.cognito(ctx)
 	if err != nil {
@@ -535,10 +568,18 @@ func (a *Auth) StartLogin(ctx context.Context) (*LoginResult, error) {
 	res, userID, err := a.srpLogin(ctx, c, username, password, device)
 	if err != nil && device != nil && deviceUnknown(err) {
 		// The remembered device may have been forgotten: try once as a new one.
+		if err := coolingDown(); err != nil {
+			return nil, err
+		}
 		device = nil
 		res, userID, err = a.srpLogin(ctx, c, username, password, nil)
 	}
 	if err != nil {
+		if credentialFailure(err) {
+			a.mu.Lock()
+			a.loginFailed = a.now()
+			a.mu.Unlock()
+		}
 		return nil, loginError(err)
 	}
 	switch {
@@ -552,10 +593,20 @@ func (a *Auth) StartLogin(ctx context.Context) (*LoginResult, error) {
 	case res.ChallengeName == "SMS_MFA":
 		a.mu.Lock()
 		a.pending = &pendingLogin{cognito: c, session: res.Session, userID: userID, username: username, created: a.now()}
+		a.codeSent = a.now()
 		a.mu.Unlock()
 		return &LoginResult{CodeRequired: true, CodeSentTo: res.ChallengeParameters["CODE_DELIVERY_DESTINATION"], Username: username}, nil
 	}
 	return nil, fmt.Errorf("hive's login asked for %s, which hive-mcp doesn't support", describeChallenge(res.ChallengeName))
+}
+
+// credentialFailure reports whether Cognito refused a login for a reason that
+// trying again straight away could make worse, such as a wrong password or
+// rate limiting, rather than because the remembered device is unknown or
+// Cognito couldn't be reached.
+func credentialFailure(err error) bool {
+	var ce *CognitoError
+	return errors.As(err, &ce) && !deviceUnknown(err)
 }
 
 var codeRe = regexp.MustCompile(`^\d{4,8}$`)
@@ -589,6 +640,14 @@ func (a *Auth) CompleteLogin(ctx context.Context, code string) (*LoginResult, er
 	res, err := p.cognito.respond(ctx, "SMS_MFA", p.session, map[string]string{"SMS_MFA_CODE": code, "USERNAME": p.userID})
 	if err != nil {
 		if isCognito(err, "CodeMismatchException") {
+			a.mu.Lock()
+			defer a.mu.Unlock()
+			if a.pending == p {
+				if p.attempts++; p.attempts >= maxCodeAttempts {
+					a.pending = nil
+					return nil, errors.New("too many wrong codes; start the login again")
+				}
+			}
 			return nil, ErrWrongCode
 		}
 		if isCognito(err, "NotAuthorizedException", "ExpiredCodeException") {
@@ -667,7 +726,7 @@ func (a *Auth) accept(c *cognito, r *authenticationResult, login *Tokens, keepDe
 	defer a.mu.Unlock()
 	a.tokens = t
 	a.lastError = ""
-	a.reloginFailed = time.Time{}
+	a.reloginFailed, a.loginFailed = time.Time{}, time.Time{}
 	if err := a.Store.Save(t); err != nil {
 		// Carry on with the in-memory tokens, but a restart would need a new login.
 		a.persistWarning = fmt.Sprintf("could not save tokens to %s: %v. They will be lost on restart; mount a writable volume there", a.cfg.TokenFile, err)

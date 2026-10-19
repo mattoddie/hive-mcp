@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mattoddie/hive-mcp/internal/config"
 	"github.com/mattoddie/hive-mcp/internal/hive"
@@ -193,6 +194,7 @@ func TestForgottenDeviceNeedsNewLoginAndBacksOff(t *testing.T) {
 	}
 
 	// A new terminal login starts again as a new device, with an SMS code.
+	newClock(c.Auth).advance(2 * time.Minute) // past the cooldown since the first code
 	res, err := c.Auth.StartLogin(ctx)
 	if err != nil || !res.CodeRequired {
 		t.Fatalf("relogin: %+v %v", res, err)
@@ -310,5 +312,78 @@ func TestUnwritableTokenFileWarns(t *testing.T) {
 	login(t, c)
 	if w, _ := c.Auth.Status()["warning"].(string); !strings.Contains(w, "could not save tokens") {
 		t.Errorf("warning: %q", w)
+	}
+}
+
+// clock lets a test move the Auth's time forward.
+type clock struct{ t time.Time }
+
+func (c *clock) now() time.Time          { return c.t }
+func (c *clock) advance(d time.Duration) { c.t = c.t.Add(d) }
+func newClock(a *hive.Auth) *clock       { c := &clock{t: time.Now()}; hive.SetNow(a, c.now); return c }
+
+func TestStartLoginWaitsBeforeTextingAnotherCode(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	c, _ := newClient(t, m)
+	clk := newClock(c.Auth)
+	if res, err := c.Auth.StartLogin(ctx); err != nil || !res.CodeRequired {
+		t.Fatalf("start: %+v %v", res, err)
+	}
+	calls := len(m.Cognito)
+	if _, err := c.Auth.StartLogin(ctx); err == nil || !strings.Contains(err.Error(), "less than a minute ago") {
+		t.Errorf("second start: %v", err)
+	}
+	if m.SMSSent != 1 || len(m.Cognito) != calls {
+		t.Errorf("a second code was sent: sms %d, calls %v", m.SMSSent, m.Cognito[calls:])
+	}
+	clk.advance(61 * time.Second)
+	if res, err := c.Auth.StartLogin(ctx); err != nil || !res.CodeRequired || m.SMSSent != 2 {
+		t.Errorf("after the cooldown: %+v %v (sms %d)", res, err, m.SMSSent)
+	}
+}
+
+func TestStartLoginBacksOffAfterARefusedLogin(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	c, _ := newClient(t, m, func(h *config.Hive) { h.Password = "wrong" })
+	clk := newClock(c.Auth)
+	if _, err := c.Auth.StartLogin(ctx); err == nil || !strings.Contains(err.Error(), "HIVE_PASSWORD") {
+		t.Fatalf("wrong password: %v", err)
+	}
+	calls := len(m.Cognito)
+	for range 3 {
+		if _, err := c.Auth.StartLogin(ctx); err == nil || !strings.Contains(err.Error(), "not trying again until") {
+			t.Errorf("retry: %v", err)
+		}
+	}
+	if len(m.Cognito) != calls {
+		t.Errorf("retried during the backoff: %v", m.Cognito[calls:])
+	}
+	clk.advance(6 * time.Minute)
+	if _, err := c.Auth.StartLogin(ctx); err == nil || strings.Contains(err.Error(), "not trying again") {
+		t.Errorf("after the backoff: %v", err)
+	}
+	if len(m.Cognito) == calls {
+		t.Error("didn't try again after the backoff")
+	}
+}
+
+func TestTooManyWrongCodesEndsTheLogin(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	c, _ := newClient(t, m)
+	if _, err := c.Auth.StartLogin(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var err error
+	for range 5 {
+		_, err = c.Auth.CompleteLogin(ctx, "000000")
+	}
+	if err == nil || !strings.Contains(err.Error(), "too many wrong codes") {
+		t.Errorf("fifth wrong code: %v", err)
+	}
+	if _, err := c.Auth.CompleteLogin(ctx, hivetest.SMSCode); err == nil || !strings.Contains(err.Error(), "no login waiting") {
+		t.Errorf("right code after too many wrong ones: %v", err)
 	}
 }

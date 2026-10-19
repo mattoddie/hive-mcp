@@ -48,12 +48,15 @@ type Hive struct {
 // Tools controls which tools are registered.
 type Tools struct {
 	AllowWrites bool
-	Toolsets    map[string]bool
+	// AllowLoginTools registers hive_auth_start and hive_auth_complete, which
+	// log in with the password and can text an SMS code.
+	AllowLoginTools bool
+	Toolsets        map[string]bool
 }
 
 // AllTools enables every tool, for documentation and tests.
 func AllTools() Tools {
-	t := Tools{AllowWrites: true, Toolsets: map[string]bool{}}
+	t := Tools{AllowWrites: true, AllowLoginTools: true, Toolsets: map[string]bool{}}
 	for _, ts := range Toolsets {
 		t.Toolsets[ts] = true
 	}
@@ -190,6 +193,9 @@ func Load(env Env) (*Config, error) {
 	var err error
 	t := &cfg.Tools
 	if t.AllowWrites, err = boolValue("HIVE_ALLOW_WRITES", get("HIVE_ALLOW_WRITES"), false); err != nil {
+		return nil, err
+	}
+	if t.AllowLoginTools, err = boolValue("HIVE_ALLOW_LOGIN_TOOLS", get("HIVE_ALLOW_LOGIN_TOOLS"), false); err != nil {
 		return nil, err
 	}
 	t.Toolsets = map[string]bool{}

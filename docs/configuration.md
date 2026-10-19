@@ -37,7 +37,7 @@ You do step 1. Everything else is automatic. There are two ways to do step 1:
 | Method | How | Good for |
 |---|---|---|
 | `hive-mcp login` in a terminal | `docker compose run --rm hive-mcp login`, or `docker run -it --rm --env-file .env -v hive-data:/data ghcr.io/mattoddie/hive-mcp:latest login`, or `hive-mcp login` with the binary. It asks for the code. | The compose setup and most others. |
-| From the assistant | Ask it to *"log in to Hive"*. It calls `hive_auth_start` (Hive texts you), you tell it the code, and it calls `hive_auth_complete`. | Logging in without a terminal, for example with Claude Desktop in stdio mode. |
+| From the assistant | Set `HIVE_ALLOW_LOGIN_TOOLS=true` and restart, then ask it to *"log in to Hive"*. It calls `hive_auth_start` (Hive texts you), you tell it the code, and it calls `hive_auth_complete`. | Logging in without a terminal, for example with Claude Desktop in stdio mode. |
 
 Running `login` again later doesn't send a code if the server is still a remembered device. It just logs in afresh.
 
@@ -48,6 +48,7 @@ Running `login` again later doesn't send a code if the server is still a remembe
 
 - It **never triggers an SMS code by itself**. If it would need one (for example, because the remembered device was removed from your account), it stops and tools tell you to run `hive-mcp login` again.
 - After a failed automatic login it **waits five minutes** before trying again, so a wrong password can't lock your account through repeated attempts.
+- The login tools (`HIVE_ALLOW_LOGIN_TOOLS`) won't ask Hive for another SMS code within a minute of the last one, or try again within five minutes of a login Hive refused, however often the assistant calls them. Five wrong codes end a pending login.
 - Without `HIVE_PASSWORD`, the server works until the refresh token runs out, then needs a new `hive-mcp login`.
 
 ### Logging out
@@ -59,6 +60,7 @@ Running `login` again later doesn't send a code if the server is still a remembe
 | Variable | Default | Description |
 |---|---|---|
 | `HIVE_ALLOW_WRITES` | `false` | Register tools that change things: heating temperature and mode, boosts, hot water, holiday mode, plugs and lights, and non-GET requests in the raw API tool. |
+| `HIVE_ALLOW_LOGIN_TOOLS` | `false` | Register `hive_auth_start` and `hive_auth_complete`, so the assistant can log in for you. They log in with `HIVE_PASSWORD` and can make Hive text an SMS code, so they're off unless you ask for them. `hive_auth_status` is always available. |
 | `HIVE_TOOLSETS` | `all` | Comma-separated list of [toolsets](#choosing-toolsets) to expose. |
 
 Boolean variables accept `true`/`false`, `1`/`0`, `yes`/`no` and `on`/`off`. Anything else stops the server with an error.
@@ -69,8 +71,9 @@ The [tool reference](tools.md) labels every tool with the setting it needs:
 |---|---|
 | 🟢 read | Always |
 | 🟠 write | `HIVE_ALLOW_WRITES=true` |
+| 🔵 login | `HIVE_ALLOW_LOGIN_TOOLS=true` |
 
-Tools that aren't allowed are **not registered at all**. The assistant can't see them, so it can't call them or be talked into calling them. After changing `HIVE_ALLOW_WRITES`, restart the server and reconnect your MCP client so it fetches the new tool list.
+Tools that aren't allowed are **not registered at all**. The assistant can't see them, so it can't call them or be talked into calling them. After changing `HIVE_ALLOW_WRITES` or `HIVE_ALLOW_LOGIN_TOOLS`, restart the server and reconnect your MCP client so it fetches the new tool list.
 
 Unlike an OAuth service, Hive's login has no read-only scope: whatever the switch says, the login itself can do anything the Hive app can. The switch is what keeps the assistant read-only. See [Security](security.md).
 

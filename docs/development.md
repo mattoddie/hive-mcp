@@ -127,7 +127,7 @@ The input struct **is** the tool's argument schema:
 |---|---|
 | `Toolset` | Required. The tool is only registered when this toolset is enabled. |
 | `Name`, `Title`, `Description` | The tool's name (`hive_<verb>_<thing>`), a short human title, and the description the model reads. |
-| `Gate` | `Read` (the default, always registered) or `Write` (needs `HIVE_ALLOW_WRITES`). |
+| `Gate` | `Read` (the default, always registered), `Write` (needs `HIVE_ALLOW_WRITES`) or `Login` (needs `HIVE_ALLOW_LOGIN_TOOLS`; only for tools that log in with the password). |
 | `ReadOnly` | Overrides the `readOnlyHint` annotation, which defaults to `Gate == Read`. |
 | `Destructive` | Sets the `destructiveHint` annotation for tools that aren't read-only. |
 | `Idempotent` | Repeating the call with the same arguments has no further effect. Sets `idempotentHint`. |

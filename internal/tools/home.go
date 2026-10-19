@@ -44,8 +44,8 @@ func registerHome(c *Context) {
 	add(c, Def{
 		Toolset: "home", Name: "hive_auth_start", Title: "Start Hive login",
 		Description: "Start logging this server in to Hive with HIVE_USERNAME and HIVE_PASSWORD. If this server is already a remembered device, that's the whole login. Otherwise Hive texts a code to the account's phone: ask the user for it and pass it to hive_auth_complete within about three minutes. " +
-			"Only use this when the user asks to log in or a tool says the server isn't logged in; it sends a real text message.",
-		ReadOnly: boolPtr(false), OpenWorld: true,
+			"Only use this when the user asks to log in or a tool says the server isn't logged in; it sends a real text message. It refuses to send another code within a minute of the last one, and to try again within five minutes of a login Hive refused.",
+		Gate: Login, ReadOnly: boolPtr(false), OpenWorld: true,
 	}, func(ctx context.Context, _ NoArgs) (any, error) {
 		res, err := cl.Auth.StartLogin(ctx)
 		if err != nil {
@@ -61,7 +61,7 @@ func registerHome(c *Context) {
 	add(c, Def{
 		Toolset: "home", Name: "hive_auth_complete", Title: "Finish Hive login",
 		Description: "Finish a login started with hive_auth_start by giving the code Hive texted to the account's phone. This also registers the server as a remembered device, so it won't need a code again.",
-		ReadOnly:    boolPtr(false),
+		Gate:        Login, ReadOnly: boolPtr(false),
 	}, func(ctx context.Context, a authCompleteArgs) (any, error) {
 		return cl.Auth.CompleteLogin(ctx, a.Code)
 	})
