@@ -4,6 +4,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -23,6 +24,14 @@ var Toolsets = []string{"home", "heating", "hotwater", "devices", "raw"}
 const (
 	DefaultAPIURL = "https://beekeeper.hivehome.com/1.0"
 	DefaultSSOURL = "https://sso.hivehome.com"
+)
+
+// Heating target limits. Hive accepts 5 to 32 °C in steps of 0.5;
+// HIVE_MAX_TEMP lowers the top of that range, by default to DefaultMaxTemp.
+const (
+	MinTemp        = 5.0
+	HiveMaxTemp    = 32.0
+	DefaultMaxTemp = 25.0
 )
 
 // Hive holds the Hive account and API settings.
@@ -51,12 +60,15 @@ type Tools struct {
 	// AllowLoginTools registers hive_auth_start and hive_auth_complete, which
 	// log in with the password and can text an SMS code.
 	AllowLoginTools bool
-	Toolsets        map[string]bool
+	// MaxTemp is the highest heating target (°C) the tools will set, for any
+	// mode, boost or holiday mode (HIVE_MAX_TEMP).
+	MaxTemp  float64
+	Toolsets map[string]bool
 }
 
 // AllTools enables every tool, for documentation and tests.
 func AllTools() Tools {
-	t := Tools{AllowWrites: true, AllowLoginTools: true, Toolsets: map[string]bool{}}
+	t := Tools{AllowWrites: true, AllowLoginTools: true, MaxTemp: DefaultMaxTemp, Toolsets: map[string]bool{}}
 	for _, ts := range Toolsets {
 		t.Toolsets[ts] = true
 	}
@@ -135,6 +147,17 @@ func nonNegativeInt(name, v string, fallback int) (int, error) {
 	return n, nil
 }
 
+func maxTemp(v string) (float64, error) {
+	if v == "" {
+		return DefaultMaxTemp, nil
+	}
+	t, err := strconv.ParseFloat(strings.TrimSuffix(strings.TrimSpace(v), "°C"), 64)
+	if err != nil || math.IsNaN(t) || t < MinTemp || t > HiveMaxTemp || math.Mod(t*2, 1) != 0 {
+		return 0, fmt.Errorf("HIVE_MAX_TEMP must be a temperature in °C from %g to %g in steps of 0.5, got %q", MinTemp, HiveMaxTemp, v)
+	}
+	return t, nil
+}
+
 func checkURL(name, v string) (string, error) {
 	u, err := url.Parse(v)
 	if err != nil || u.Host == "" {
@@ -196,6 +219,9 @@ func Load(env Env) (*Config, error) {
 		return nil, err
 	}
 	if t.AllowLoginTools, err = boolValue("HIVE_ALLOW_LOGIN_TOOLS", get("HIVE_ALLOW_LOGIN_TOOLS"), false); err != nil {
+		return nil, err
+	}
+	if t.MaxTemp, err = maxTemp(get("HIVE_MAX_TEMP")); err != nil {
 		return nil, err
 	}
 	t.Toolsets = map[string]bool{}

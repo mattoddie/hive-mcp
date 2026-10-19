@@ -12,7 +12,7 @@ Each tool is labelled with the setting it needs:
 | 🟠 write | `HIVE_ALLOW_WRITES=true` |
 | 🔵 login | `HIVE_ALLOW_LOGIN_TOOLS=true` (they log in with the password and can text an SMS code) |
 
-Every tool also needs its toolset to be enabled in `HIVE_TOOLSETS`, which enables all toolsets by default. Temperatures are in °C, and heating targets go from 5 to 32 in steps of 0.5. Times are in the home's local time. Read tools return compact summaries, and many take `raw: true` for Hive's full objects and `fresh: true` to skip the short cache.
+Every tool also needs its toolset to be enabled in `HIVE_TOOLSETS`, which enables all toolsets by default. Temperatures are in °C, and heating targets go from 5 °C up to `HIVE_MAX_TEMP` (default 25 °C) in steps of 0.5. Heating mode `manual` and hot water mode `on` last indefinitely, so they need `confirm: true`. Times are in the home's local time. Read tools return compact summaries, and many take `raw: true` for Hive's full objects and `fresh: true` to skip the short cache.
 
 ## Contents
 
@@ -108,12 +108,12 @@ List the Hive hardware: hub, thermostats, boiler module, radiator valves (TRVs),
 
 🟠 write
 
-Set holiday mode: from start (default now) until end, the heating holds one temperature, then the normal settings resume. Replaces any holiday mode already set. Confirm the dates and temperature with the user first.
+Set holiday mode: from start (default now) until end, the heating holds one temperature, then the normal settings resume. It lasts at most 60 days. Replaces any holiday mode already set. Confirm the dates and temperature with the user first.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
-| `end` | string | yes | When it ends and the normal schedule resumes, as YYYY-MM-DD or YYYY-MM-DDTHH:MM in the home's local time |
-| `temperature` | number (5–32) | yes | Temperature to keep the home at while away, in °C (5 to 32 in steps of 0.5; frost protection is usually 7) |
+| `end` | string | yes | When it ends and the normal schedule resumes, as YYYY-MM-DD or YYYY-MM-DDTHH:MM in the home's local time; at most 60 days after the start |
+| `temperature` | number (5–25) | yes | Temperature to keep the home at while away, in °C (from 5 in steps of 0.5, up to HIVE_MAX_TEMP; frost protection is usually 7) |
 | `start` | string |  | When holiday mode starts, as YYYY-MM-DD or YYYY-MM-DDTHH:MM in the home's local time (default now) |
 
 ## heating
@@ -138,7 +138,7 @@ Boost a zone: heat to a temperature for a number of minutes, then go back to the
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
-| `temperature` | number (5–32) | yes | Temperature to boost to, in °C (5 to 32 in steps of 0.5) |
+| `temperature` | number (5–25) | yes | Temperature to boost to, in °C (from 5 in steps of 0.5, up to HIVE_MAX_TEMP) |
 | `minutes` | integer (1–360) |  | How long to boost for, in minutes (default 60, at most 360) |
 | `zone` | string |  | Heating zone or TRV zone, by name (for example "Heating" or "Bedroom") or ID. Can be left out when there's only one. See hive_get_heating |
 
@@ -188,23 +188,25 @@ List the Hive radiator valves (TRVs) by zone: each zone's temperature, target an
 
 🟠 write
 
-Switch a zone between schedule (follow the weekly schedule), manual (hold one temperature) and off (frost protection only). Cancels a boost.
+Switch a zone between schedule (follow the weekly schedule), manual (hold one temperature) and off (frost protection only). Cancels a boost. Manual lasts indefinitely, so it needs confirm: true; prefer hive_boost_heating for a temporary change.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `mode` | `"schedule"` \| `"manual"` \| `"off"` | yes | schedule (follow the heating schedule), manual (hold one temperature) or off (frost protection only) |
-| `temperature` | number (5–32) |  | With manual: the temperature to hold, in °C (5 to 32 in steps of 0.5). Default: the zone's current target |
+| `confirm` | boolean |  | Must be true for heating mode manual or hot water mode on, which last indefinitely (until something changes them). Only set it once the user has agreed to an open-ended change; for a temporary one, boost instead |
+| `temperature` | number (5–25) |  | With manual: the temperature to hold, in °C (from 5 in steps of 0.5, up to HIVE_MAX_TEMP). Default: the zone's current target |
 | `zone` | string |  | Heating zone or TRV zone, by name (for example "Heating" or "Bedroom") or ID. Can be left out when there's only one. See hive_get_heating |
 
 ### hive_set_heating_temperature
 
 🟠 write
 
-Set a zone's target temperature. In schedule mode this lasts until the next scheduled change, like turning the thermostat dial; pass mode=manual to hold it. If the zone is off, the target is saved but nothing heats until the mode changes.
+Set a zone's target temperature. In schedule mode this lasts until the next scheduled change, like turning the thermostat dial; pass mode=manual to hold it. If the zone is off, the target is saved but nothing heats until the mode changes. Holding a temperature in manual mode (mode=manual, or a zone that is already in manual) lasts indefinitely, so it needs confirm: true; prefer hive_boost_heating for a temporary change.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
-| `temperature` | number (5–32) | yes | Target temperature in °C, 5 to 32 in steps of 0.5 |
+| `temperature` | number (5–25) | yes | Target temperature in °C, from 5 in steps of 0.5, up to HIVE_MAX_TEMP (see the schema maximum) |
+| `confirm` | boolean |  | Must be true for heating mode manual or hot water mode on, which last indefinitely (until something changes them). Only set it once the user has agreed to an open-ended change; for a temporary one, boost instead |
 | `mode` | `"manual"` \| `"schedule"` |  | Also switch mode: manual (hold this temperature) or schedule (just until the next scheduled change, as turning the dial does) |
 | `zone` | string |  | Heating zone or TRV zone, by name (for example "Heating" or "Bedroom") or ID. Can be left out when there's only one. See hive_get_heating |
 
@@ -261,11 +263,12 @@ _No arguments._
 
 🟠 write
 
-Switch the hot water on (it stays on until changed), off, or back to its schedule. Cancels a boost. For a limited time, use hive_boost_hot_water instead of on.
+Switch the hot water on (it stays on until changed), off, or back to its schedule. Cancels a boost. For a limited time, use hive_boost_hot_water instead of on. On lasts indefinitely, so it needs confirm: true.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `mode` | `"on"` \| `"off"` \| `"schedule"` | yes | on (stay on until changed), off, or schedule (follow the hot water schedule) |
+| `confirm` | boolean |  | Must be true for heating mode manual or hot water mode on, which last indefinitely (until something changes them). Only set it once the user has agreed to an open-ended change; for a temporary one, boost instead |
 
 ## devices
 

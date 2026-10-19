@@ -89,10 +89,14 @@ func TestHolidayMode(t *testing.T) {
 		"end must be after start": {"start": "2030-01-08", "end": "2030-01-01", "temperature": 10},
 		"steps of 0.5":            {"end": future, "temperature": 10.2},
 		"not a date":              {"end": "soon", "temperature": 10},
+		"at most 60 days":         {"start": "2030-01-01", "end": "2030-03-03", "temperature": 10},
 	} {
 		if msg := env.callErr("hive_set_holiday_mode", want); !strings.Contains(msg, args) {
 			t.Errorf("%v: %s", want, msg)
 		}
+	}
+	if !env.rejects("hive_set_holiday_mode", map[string]any{"end": future, "temperature": 26}) {
+		t.Error("26 °C accepted above HIVE_MAX_TEMP")
 	}
 	env.obj("hive_cancel_holiday_mode", nil)
 	if r := env.mock.Last("DELETE"); r == nil || r.Path != "/holiday-mode" {

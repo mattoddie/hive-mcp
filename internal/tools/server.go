@@ -1,6 +1,8 @@
 package tools
 
 import (
+	"fmt"
+
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/mattoddie/hive-mcp/internal/config"
@@ -21,9 +23,10 @@ func instructions(opts config.Tools) string {
 	} else {
 		s += "If a tool says the server isn't logged in, tell the user to run `hive-mcp login`. "
 	}
-	s += "Temperatures are in °C; heating targets go from 5 to 32 in steps of 0.5. Times are in the home's local time. Readings can be up to HIVE_CACHE_SECONDS old; pass fresh: true when it matters. "
+	s += fmt.Sprintf("Temperatures are in °C; heating targets go from 5 to %g in steps of 0.5 (HIVE_MAX_TEMP). ", (&Context{Tools: opts}).maxTemp())
+	s += "Holiday mode lasts at most 60 days. Times are in the home's local time. Readings can be up to HIVE_CACHE_SECONDS old; pass fresh: true when it matters. "
 	if opts.AllowWrites {
-		s += "Write tools are enabled and act on a real home: confirm changes with the user (which zone, temperature, mode and for how long) before making them, prefer a boost over manual mode for a temporary change, and never turn heating off or set holiday mode without being asked."
+		s += "Write tools are enabled and act on a real home: confirm changes with the user (which zone, temperature, mode and for how long) before making them, prefer a boost over manual mode or hot water on for a temporary change (manual and on last indefinitely and need confirm: true, which you should only pass once the user has agreed), and never turn heating off or set holiday mode without being asked."
 	} else {
 		s += "The server is read-only; tools that change the heating, hot water or devices are disabled (HIVE_ALLOW_WRITES=false)."
 	}

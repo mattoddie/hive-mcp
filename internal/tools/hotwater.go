@@ -10,6 +10,7 @@ import (
 
 type setHotWaterArgs struct {
 	Mode string `json:"mode" jsonschema:"on (stay on until changed), off, or schedule (follow the hot water schedule)"`
+	confirmArgs
 }
 
 type boostHotWaterArgs struct {
@@ -61,13 +62,18 @@ func registerHotWater(c *Context) {
 
 	add(c, Def{
 		Toolset: "hotwater", Name: "hive_set_hot_water_mode", Title: "Set hot water mode",
-		Description: "Switch the hot water on (it stays on until changed), off, or back to its schedule. Cancels a boost. For a limited time, use hive_boost_hot_water instead of on.",
+		Description: "Switch the hot water on (it stays on until changed), off, or back to its schedule. Cancels a boost. For a limited time, use hive_boost_hot_water instead of on. On lasts indefinitely, so it needs confirm: true.",
 		Gate:        Write, Idempotent: true,
 		Enums: map[string][]string{"mode": {"on", "off", "schedule"}},
 	}, func(ctx context.Context, a setHotWaterArgs) (any, error) {
 		mode, ok := hotWaterModes[a.Mode]
 		if !ok {
 			return nil, fmt.Errorf("mode must be on, off or schedule")
+		}
+		if a.Mode == "on" {
+			if err := needConfirm(a.Confirm, "Hot water on", "hive_boost_hot_water"); err != nil {
+				return nil, err
+			}
 		}
 		_, p, err := hotWater(ctx, false)
 		if err != nil {

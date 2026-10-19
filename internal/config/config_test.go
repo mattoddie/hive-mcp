@@ -29,6 +29,9 @@ func TestDefaults(t *testing.T) {
 	if h.TokenFile != filepath.Join("/home/x", ".config", "hive-mcp", "tokens.json") {
 		t.Errorf("token file: %s", h.TokenFile)
 	}
+	if cfg.Tools.MaxTemp != 25 {
+		t.Errorf("max temp: %g", cfg.Tools.MaxTemp)
+	}
 	if cfg.Tools.AllowWrites || cfg.Tools.AllowLoginTools || len(cfg.Tools.Toolsets) != len(Toolsets) {
 		t.Errorf("tools: %+v", cfg.Tools)
 	}
@@ -51,6 +54,9 @@ func TestValidation(t *testing.T) {
 	for env, want := range map[string]string{
 		"HIVE_ALLOW_WRITES=maybe":       "must be true or false",
 		"HIVE_ALLOW_LOGIN_TOOLS=maybe":  "must be true or false",
+		"HIVE_MAX_TEMP=40":              "HIVE_MAX_TEMP must be",
+		"HIVE_MAX_TEMP=20.3":            "steps of 0.5",
+		"HIVE_MAX_TEMP=warm":            "HIVE_MAX_TEMP must be",
 		"MCP_TRANSPORT=sse":             "stdio or http",
 		"HIVE_TOOLSETS=heating,nope":    `unknown toolset "nope"`,
 		"HIVE_API_URL=ftp://x":          "https://",

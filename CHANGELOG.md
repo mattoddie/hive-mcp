@@ -11,12 +11,15 @@ This release follows a security review. Read **Breaking changes** before upgradi
 ### Breaking changes
 
 - `hive_auth_start` and `hive_auth_complete` are only registered with the new `HIVE_ALLOW_LOGIN_TOOLS=true`. They log in with the password and can make Hive text an SMS code, so a model calling them in a loop could text you repeatedly or get the account locked. `hive-mcp login` in a terminal works as before.
+- Heating targets above 25 °C are refused unless you raise the new `HIVE_MAX_TEMP` (it was 32 °C).
+- `hive_set_heating_mode` with `mode: manual`, `hive_set_heating_temperature` with `mode: manual` (or on a zone already in manual) and `hive_set_hot_water_mode` with `mode: on` need the new `confirm: true` argument, because those settings last indefinitely. `hive_set_holiday_mode` refuses an end more than 60 days after the start.
 
 ### Security
 
 - `hive_auth_start` (and `hive-mcp login`) won't ask Hive for another SMS code within a minute of the last one, or try again within five minutes of a login Hive refused. Five wrong codes end a pending login.
 - `hive-mcp logout` now also revokes the refresh token with Cognito's `RevokeToken`, and renews an expired access token first so it can still ask Hive to forget the remembered device. Before, it only forgot the device if the access token hadn't expired.
 - A running server treats a deleted token file as logged out and drops the tokens and device it holds in memory. Before, a refresh could write the deleted file back.
+- Heating targets are capped by the new `HIVE_MAX_TEMP` (default 25 °C; Hive allows up to 32) for every mode, boost and holiday mode. Holiday mode can last at most 60 days.
 
 ## [0.1.1] - 2026-10-16
 

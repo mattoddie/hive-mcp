@@ -114,9 +114,17 @@ The server is working from memory because it can't write the token file. With th
 
 ## Errors when changing things
 
-**`… must be between 5 and 32 °C` or `… must be in steps of 0.5 °C`**
+**`… must be between 5 and 25 °C` or `… must be in steps of 0.5 °C`**
 
-Hive heating targets are 5 to 32 °C, in steps of 0.5. Round the temperature.
+hive-mcp sets heating targets from 5 °C up to `HIVE_MAX_TEMP` (25 °C by default; Hive allows up to 32), in steps of 0.5. Round the temperature, or raise `HIVE_MAX_TEMP` if you really need a higher target.
+
+**`… lasts indefinitely, until someone changes it`**
+
+Manual heating and hot water `on` stay that way until something changes them, so the tools need `confirm: true`. Ask for a boost instead, or tell the assistant you do want it left on.
+
+**`holiday mode can last at most 60 days`**
+
+Pick an earlier end date, and set holiday mode again nearer the time if you're away longer.
 
 **`no heating zone called "…"; the choices are …`, or `… matches more than one …`**
 

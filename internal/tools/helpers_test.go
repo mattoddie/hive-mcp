@@ -179,14 +179,17 @@ func TestFind(t *testing.T) {
 
 func TestCheckTemperature(t *testing.T) {
 	for _, ok := range []float64{5, 7, 20.5, 32} {
-		if err := checkTemperature("t", ok); err != nil {
+		if err := checkTemperature("t", ok, 32); err != nil {
 			t.Errorf("%g: %v", ok, err)
 		}
 	}
 	for bad, want := range map[float64]string{4.5: "between", 32.5: "between", 20.3: "steps of 0.5"} {
-		if err := checkTemperature("t", bad); err == nil || !strings.Contains(err.Error(), want) {
+		if err := checkTemperature("t", bad, 32); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%g: %v", bad, err)
 		}
+	}
+	if err := checkTemperature("t", 25.5, 25); err == nil || !strings.Contains(err.Error(), "HIVE_MAX_TEMP") {
+		t.Errorf("above HIVE_MAX_TEMP: %v", err)
 	}
 }
 

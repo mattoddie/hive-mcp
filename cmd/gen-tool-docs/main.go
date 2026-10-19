@@ -177,7 +177,7 @@ func main() {
 		"| 🟢 read | Always |",
 		"| 🟠 write | `HIVE_ALLOW_WRITES=true` |",
 		"| 🔵 login | `HIVE_ALLOW_LOGIN_TOOLS=true` (they log in with the password and can text an SMS code) |", "",
-		"Every tool also needs its toolset to be enabled in `HIVE_TOOLSETS`, which enables all toolsets by default. Temperatures are in °C, and heating targets go from 5 to 32 in steps of 0.5. Times are in the home's local time. Read tools return compact summaries, and many take `raw: true` for Hive's full objects and `fresh: true` to skip the short cache.", "",
+		"Every tool also needs its toolset to be enabled in `HIVE_TOOLSETS`, which enables all toolsets by default. Temperatures are in °C, and heating targets go from 5 °C up to `HIVE_MAX_TEMP` (default 25 °C) in steps of 0.5. Heating mode `manual` and hot water mode `on` last indefinitely, so they need `confirm: true`. Times are in the home's local time. Read tools return compact summaries, and many take `raw: true` for Hive's full objects and `fresh: true` to skip the short cache.", "",
 		"## Contents", "")
 	for _, ts := range config.Toolsets {
 		w(fmt.Sprintf("- [`%s`](#%s): %s", ts, ts, toolsetInfo[ts]))

@@ -23,13 +23,17 @@ type listDevicesArgs struct {
 
 type setHolidayArgs struct {
 	Start       string  `json:"start,omitempty" jsonschema:"When holiday mode starts, as YYYY-MM-DD or YYYY-MM-DDTHH:MM in the home's local time (default now)"`
-	End         string  `json:"end" jsonschema:"When it ends and the normal schedule resumes, as YYYY-MM-DD or YYYY-MM-DDTHH:MM in the home's local time"`
-	Temperature float64 `json:"temperature" jsonschema:"Temperature to keep the home at while away, in °C (5 to 32 in steps of 0.5; frost protection is usually 7)"`
+	End         string  `json:"end" jsonschema:"When it ends and the normal schedule resumes, as YYYY-MM-DD or YYYY-MM-DDTHH:MM in the home's local time; at most 60 days after the start"`
+	Temperature float64 `json:"temperature" jsonschema:"Temperature to keep the home at while away, in °C (from 5 in steps of 0.5, up to HIVE_MAX_TEMP; frost protection is usually 7)"`
 }
 
 func (c *Context) nodes(ctx context.Context, fresh bool) (*hive.Nodes, error) {
 	return c.Client.Nodes(ctx, fresh)
 }
+
+// maxHoliday caps holiday mode, so a mistaken end date can't leave the heating
+// at one temperature for months.
+const maxHoliday = 60 * 24 * time.Hour
 
 func registerHome(c *Context) {
 	cl := c.Client
@@ -165,10 +169,10 @@ func registerHome(c *Context) {
 
 	add(c, Def{
 		Toolset: "home", Name: "hive_set_holiday_mode", Title: "Set holiday mode",
-		Description: "Set holiday mode: from start (default now) until end, the heating holds one temperature, then the normal settings resume. Replaces any holiday mode already set. Confirm the dates and temperature with the user first.",
-		Gate:        Write, Idempotent: true, Ranges: map[string][2]float64{"temperature": tempRange},
+		Description: "Set holiday mode: from start (default now) until end, the heating holds one temperature, then the normal settings resume. It lasts at most 60 days. Replaces any holiday mode already set. Confirm the dates and temperature with the user first.",
+		Gate:        Write, Idempotent: true, Ranges: map[string][2]float64{"temperature": c.tempRange()},
 	}, func(ctx context.Context, a setHolidayArgs) (any, error) {
-		if err := checkTemperature("temperature", a.Temperature); err != nil {
+		if err := checkTemperature("temperature", a.Temperature, c.maxTemp()); err != nil {
 			return nil, err
 		}
 		n, err := c.nodes(ctx, false)
@@ -188,6 +192,9 @@ func registerHome(c *Context) {
 		}
 		if !end.After(start) || !end.After(time.Now()) {
 			return nil, errors.New("end must be after start and in the future")
+		}
+		if end.Sub(start) > maxHoliday {
+			return nil, fmt.Errorf("holiday mode can last at most %d days; end must be by %s", int(maxHoliday.Hours()/24), start.Add(maxHoliday).In(loc).Format("2006-01-02T15:04"))
 		}
 		body := Obj{"start": start.UnixMilli(), "end": end.UnixMilli(), "temperature": a.Temperature}
 		if err := cl.Post(ctx, "/holiday-mode", body, nil); err != nil {

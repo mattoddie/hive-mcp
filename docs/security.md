@@ -28,7 +28,7 @@ The best defence is to limit what's possible, not to rely on the model behaving.
 |---|---|---|
 | Write switch | `HIVE_ALLOW_WRITES` (off by default) | When off, no tools that change anything are registered and the raw API tool only allows `GET`. This is the main control: Hive's login has no read-only mode. |
 | Toolsets | `HIVE_TOOLSETS` | Tools outside the listed toolsets don't exist. The model can't see or call them. |
-| Validation | Built in | Heating targets must be 5–32 °C in steps of 0.5, boosts last at most six hours, brightness is 5–100% and colour temperatures stay within the bulb's range. Bad values are refused before anything reaches Hive. |
+| Validation | Built in | Heating targets must be 5 °C to `HIVE_MAX_TEMP` (default 25 °C) in steps of 0.5, boosts last at most six hours, holiday mode at most 60 days, manual heating and hot water `on` (which last indefinitely) need `confirm: true`, brightness is 5–100% and colour temperatures stay within the bulb's range. Bad values are refused before anything reaches Hive. |
 | Tool annotations | Built in | Each tool is marked read-only or not, so MCP clients can ask for your confirmation before changes. With writes on, the raw API tool is marked destructive. |
 | Server instructions | Built in | With writes on, the model is told to confirm changes with you, prefer boosts to manual mode for temporary changes, and never turn heating off or set holiday mode without being asked. This helps, but it isn't a security boundary. |
 | No secret output | Built in | No tool or log line includes the password, tokens or device secret. `hive_auth_status` and `hive-mcp status` describe the login without showing them. |

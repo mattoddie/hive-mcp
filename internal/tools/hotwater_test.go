@@ -18,7 +18,10 @@ func TestHotWater(t *testing.T) {
 		t.Errorf("schedule: %v", p)
 	}
 
-	res := env.obj("hive_set_hot_water_mode", map[string]any{"mode": "on"})
+	if msg := env.callErr("hive_set_hot_water_mode", map[string]any{"mode": "on"}); !strings.Contains(msg, "hive_boost_hot_water") || env.posts() != 0 {
+		t.Errorf("on without confirm: %s", msg)
+	}
+	res := env.obj("hive_set_hot_water_mode", map[string]any{"mode": "on", "confirm": true})
 	if got := env.lastBody(); got != "/nodes/hotwater/"+hivetest.HotWaterID+` {"mode":"MANUAL"}` {
 		t.Errorf("sent %s", got)
 	}

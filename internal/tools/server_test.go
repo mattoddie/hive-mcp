@@ -94,7 +94,7 @@ func TestSchemasDescribeEveryArgument(t *testing.T) {
 	}
 	tool := toolNames(t, env.session)["hive_boost_heating"]
 	temp := tool.InputSchema.(map[string]any)["properties"].(map[string]any)["temperature"].(map[string]any)
-	if temp["minimum"] != 5.0 || temp["maximum"] != 32.0 {
+	if temp["minimum"] != 5.0 || temp["maximum"] != 25.0 {
 		t.Errorf("temperature range: %v", temp)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mattoddie/hive-mcp/internal/config"
 	"github.com/mattoddie/hive-mcp/internal/hive/hivetest"
 )
 
@@ -47,7 +48,14 @@ func TestSetHeating(t *testing.T) {
 	if res["now"].(Obj)["target_temperature"] != 21.5 {
 		t.Errorf("result: %v", res)
 	}
-	env.obj("hive_set_heating_temperature", map[string]any{"zone": "Bedroom", "temperature": 19, "mode": "manual"})
+	if msg := env.callErr("hive_set_heating_temperature", map[string]any{"zone": "Bedroom", "temperature": 19, "mode": "manual"}); !strings.Contains(msg, "confirm: true") {
+		t.Errorf("manual without confirm: %s", msg)
+	}
+	posts := env.posts()
+	env.obj("hive_set_heating_temperature", map[string]any{"zone": "Bedroom", "temperature": 19, "mode": "manual", "confirm": true})
+	if env.posts() != posts+1 {
+		t.Errorf("posts: %d then %d", posts, env.posts())
+	}
 	if got := env.lastBody(); got != "/nodes/trvcontrol/"+hivetest.TRVZoneID+` {"mode":"MANUAL","target":19}` {
 		t.Errorf("sent %s", got)
 	}
@@ -63,7 +71,16 @@ func TestSetHeating(t *testing.T) {
 	if !strings.Contains(res["warning"].(string), "off") {
 		t.Errorf("no warning when off: %v", res)
 	}
-	env.obj("hive_set_heating_mode", map[string]any{"zone": "Heating", "mode": "manual", "temperature": 19.5})
+	if msg := env.callErr("hive_set_heating_mode", map[string]any{"zone": "Heating", "mode": "manual", "temperature": 19.5}); !strings.Contains(msg, "lasts indefinitely") {
+		t.Errorf("manual without confirm: %s", msg)
+	}
+	if msg := env.callErr("hive_set_heating_temperature", map[string]any{"zone": "Bedroom", "temperature": 20}); !strings.Contains(msg, "confirm: true") {
+		t.Errorf("a zone already in manual: %s", msg)
+	}
+	if !env.rejects("hive_set_heating_mode", map[string]any{"zone": "Heating", "mode": "manual", "temperature": 26, "confirm": true}) {
+		t.Error("26 °C accepted above HIVE_MAX_TEMP")
+	}
+	env.obj("hive_set_heating_mode", map[string]any{"zone": "Heating", "mode": "manual", "temperature": 19.5, "confirm": true})
 	if got := env.lastBody(); !strings.HasSuffix(got, `{"mode":"MANUAL","target":19.5}`) {
 		t.Errorf("sent %s", got)
 	}
@@ -104,5 +121,21 @@ func TestBoostHeating(t *testing.T) {
 	}
 	if !env.rejects("hive_boost_heating", map[string]any{"zone": "Heating", "temperature": 22, "minutes": 999}) {
 		t.Error("999 minutes accepted")
+	}
+}
+
+func TestMaxTempIsConfigurable(t *testing.T) {
+	o := config.AllTools()
+	o.MaxTemp = 28
+	env := newEnv(t, o)
+	env.obj("hive_boost_heating", map[string]any{"zone": "Heating", "temperature": 27.5})
+	if !env.rejects("hive_boost_heating", map[string]any{"zone": "Heating", "temperature": 28.5}) {
+		t.Error("28.5 °C accepted with HIVE_MAX_TEMP=28")
+	}
+	// A manual switch that keeps the current target checks it against the limit too.
+	o.MaxTemp = 15
+	env = newEnv(t, o)
+	if msg := env.callErr("hive_set_heating_mode", map[string]any{"zone": "Bedroom", "mode": "manual", "confirm": true}); !strings.Contains(msg, "HIVE_MAX_TEMP") {
+		t.Errorf("current target above the limit: %s", msg)
 	}
 }

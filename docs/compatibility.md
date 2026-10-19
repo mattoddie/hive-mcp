@@ -50,7 +50,7 @@ Window, door and motion sensors were also sold as part of HomeShield. They still
 |---|---|
 | Login | AWS Cognito (`cognito-idp.eu-west-1.amazonaws.com`) with SRP and SMS two-step verification, then Cognito's "remembered device" SRP for later logins. The Cognito pool and app client are read from Hive's sign-in page, `sso.hivehome.com`, as pyhiveapi does. |
 | API | `https://beekeeper.hivehome.com/1.0`, with the Cognito ID token in the `Authorization` header. One `GET /nodes/all` returns the whole home; changes are `POST /nodes/<type>/<id>`; holiday mode is `/holiday-mode`. |
-| Heating limits | 5 to 32 °C, in steps of 0.5, as the Hive app and pyhiveapi apply them. |
+| Heating limits | 5 to 32 °C, in steps of 0.5, as the Hive app and pyhiveapi apply them. hive-mcp caps targets at `HIVE_MAX_TEMP` (default 25 °C). |
 | Polling | One request reads the whole home, and it's cached for `HIVE_CACHE_SECONDS` (30 seconds by default). Changes clear the cache. |
 | Rate limits | Hive doesn't publish any. hive-mcp retries a few times with increasing waits when it gets `429` or `503`, and waits five minutes after a failed automatic login. |
 
