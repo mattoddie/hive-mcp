@@ -52,23 +52,26 @@ func TestCognitoOverrides(t *testing.T) {
 
 func TestValidation(t *testing.T) {
 	for env, want := range map[string]string{
-		"HIVE_ALLOW_WRITES=maybe":       "must be true or false",
-		"HIVE_ALLOW_LOGIN_TOOLS=maybe":  "must be true or false",
-		"HIVE_MAX_TEMP=40":              "HIVE_MAX_TEMP must be",
-		"HIVE_MAX_TEMP=20.3":            "steps of 0.5",
-		"HIVE_MAX_TEMP=warm":            "HIVE_MAX_TEMP must be",
-		"MCP_TRANSPORT=sse":             "stdio or http",
-		"HIVE_TOOLSETS=heating,nope":    `unknown toolset "nope"`,
-		"HIVE_API_URL=ftp://x":          "https://",
-		"HIVE_TIMEOUT_MS=-1":            "positive integer",
-		"HIVE_CACHE_SECONDS=soon":       "zero or a positive integer",
-		"MCP_HTTP_PORT=http":            "positive integer",
-		"HIVE_COGNITO_POOL_ID=nope":     "eu-west-1_",
-		"HIVE_COGNITO_CLIENT_ID=abc":    "or neither",
-		"HIVE_SSO_URL=ftp://x":          "https://",
-		"HIVE_PASSWORD_FILE=/nonexist":  "HIVE_PASSWORD_FILE",
-		"HIVE_COGNITO_URL=not a url":    "not a valid URL",
-		"MCP_AUTH_TOKEN_FILE=/nonexist": "MCP_AUTH_TOKEN_FILE",
+		"HIVE_ALLOW_WRITES=maybe":                            "must be true or false",
+		"HIVE_ALLOW_LOGIN_TOOLS=maybe":                       "must be true or false",
+		"HIVE_MAX_TEMP=40":                                   "HIVE_MAX_TEMP must be",
+		"HIVE_MAX_TEMP=20.3":                                 "steps of 0.5",
+		"HIVE_MAX_TEMP=warm":                                 "HIVE_MAX_TEMP must be",
+		"MCP_TRANSPORT=sse":                                  "stdio or http",
+		"HIVE_TOOLSETS=heating,nope":                         `unknown toolset "nope"`,
+		"HIVE_API_URL=ftp://x":                               "https://",
+		"HIVE_TIMEOUT_MS=-1":                                 "positive integer",
+		"HIVE_CACHE_SECONDS=soon":                            "zero or a positive integer",
+		"MCP_HTTP_PORT=http":                                 "positive integer",
+		"HIVE_COGNITO_POOL_ID=nope":                          "eu-west-1_",
+		"HIVE_COGNITO_CLIENT_ID=abc":                         "or neither",
+		"HIVE_SSO_URL=ftp://x":                               "https://",
+		"HIVE_PASSWORD_FILE=/nonexist":                       "HIVE_PASSWORD_FILE",
+		"HIVE_COGNITO_URL=not a url":                         "not a valid URL",
+		"HIVE_API_URL=http://beekeeper.example/1.0":          "https://",
+		"HIVE_SSO_URL=http://10.0.0.1":                       "only allowed to localhost",
+		"HIVE_COGNITO_URL=https://u:" + "pw@cognito.example": "must not contain a username",
+		"MCP_AUTH_TOKEN_FILE=/nonexist":                      "MCP_AUTH_TOKEN_FILE",
 	} {
 		k, v, _ := strings.Cut(env, "=")
 		_, err := Load(MapEnv(map[string]string{k: v}))
@@ -131,5 +134,17 @@ func TestHTTPNeedsAuthToken(t *testing.T) {
 	base["MCP_AUTH_TOKEN"] = "a-long-enough-secret-token"
 	if _, err := Load(MapEnv(base)); err != nil {
 		t.Fatalf("with a token: %v", err)
+	}
+}
+
+func TestURLsAllowPlainHTTPOnlyToLoopback(t *testing.T) {
+	for _, u := range []string{"http://127.0.0.1:9000", "http://localhost:8080/1.0", "http://[::1]:1234", "https://beekeeper.example/1.0"} {
+		if _, err := Load(MapEnv(map[string]string{"HIVE_API_URL": u})); err != nil {
+			t.Errorf("%s: %v", u, err)
+		}
+	}
+	_, err := Load(MapEnv(map[string]string{"HIVE_COGNITO_URL": "https://u:" + "s3cret" + "@cognito.example"}))
+	if err == nil || strings.Contains(err.Error(), "s3cret") {
+		t.Errorf("credentials in a URL should be refused without echoing them: %v", err)
 	}
 }

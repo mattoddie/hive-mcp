@@ -10,6 +10,7 @@ This release follows a security review. Read **Breaking changes** before upgradi
 
 ### Breaking changes
 
+- `HIVE_API_URL`, `HIVE_SSO_URL` and `HIVE_COGNITO_URL` must be `https://` unless they point at a loopback address.
 - `MCP_AUTH_TOKEN` must be at least 16 characters, and `MCP_ALLOW_UNAUTHENTICATED=true` now also needs `MCP_ALLOWED_HOSTS`. The server refuses to start otherwise.
 - With `MCP_ALLOWED_HOSTS` set, browser requests whose `Origin` isn't on the list are refused. An entry without a port matches only the default port (80 or 443) in an `Origin`, so list `host:port` for a page on another port.
 - `/mcp` only accepts `POST` with a JSON body (other methods get `405`, bodies over 1 MiB `413`).
@@ -25,6 +26,8 @@ This release follows a security review. Read **Breaking changes** before upgradi
 - Heating targets are capped by the new `HIVE_MAX_TEMP` (default 25 °C; Hive allows up to 32) for every mode, boost and holiday mode. Holiday mode can last at most 60 days.
 - The HTTP server checks `Origin` against `MCP_ALLOWED_HOSTS` (rejecting `null` and empty origins), logs a warning when running unauthenticated, and sets read and idle timeouts.
 - `hive-mcp healthcheck` checks the configured `MCP_HTTP_HOST` and port (including `MCP_HTTP_PORT_FILE`) instead of always `127.0.0.1` and `MCP_HTTP_PORT`.
+- `HIVE_API_URL`, `HIVE_SSO_URL` and `HIVE_COGNITO_URL` must use `https://` (plain `http://` only to a loopback address) and can't contain credentials. Requests to Hive and Cognito never follow redirects, which could otherwise carry tokens to another host.
+- Only a `401` from Hive refreshes the login (a `403` did too). A `POST` is retried only after a `429`, never after a `502` or `503`. Responses over 64 MiB fail with a clear error instead of being truncated.
 
 ## [0.1.1] - 2026-10-16
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -163,15 +164,35 @@ func maxTemp(v string) (float64, error) {
 	return t, nil
 }
 
+// checkURL validates one of Hive's endpoints. Requests to them carry the
+// password proof, tokens and device secrets, so they must use https://,
+// except to a loopback address (a local mock or proxy), and must not embed
+// credentials.
 func checkURL(name, v string) (string, error) {
 	u, err := url.Parse(v)
 	if err != nil || u.Host == "" {
-		return "", fmt.Errorf("%s is not a valid URL: %s", name, v)
+		return "", fmt.Errorf("%s is not a valid URL", name)
 	}
-	if u.Scheme != "https" && u.Scheme != "http" {
-		return "", fmt.Errorf("%s must use https:// (or http://), got %s", name, v)
+	if u.User != nil {
+		return "", fmt.Errorf("%s must not contain a username or password (user:pass@), got %s", name, u.Redacted())
+	}
+	switch {
+	case u.Scheme == "https":
+	case u.Scheme == "http" && isLoopback(u.Hostname()):
+	case u.Scheme == "http":
+		return "", fmt.Errorf("%s must use https:// (plain http:// is only allowed to localhost), got %s", name, v)
+	default:
+		return "", fmt.Errorf("%s must use https://, got %s", name, v)
 	}
 	return strings.TrimRight(v, "/"), nil
+}
+
+func isLoopback(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 var poolIDRe = regexp.MustCompile(`^([a-z]{2}(?:-[a-z]+)+-\d)_[A-Za-z0-9]+$`)

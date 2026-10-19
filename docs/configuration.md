@@ -85,7 +85,7 @@ Unlike an OAuth service, Hive's login has no read-only scope: whatever the switc
 | `HIVE_CACHE_SECONDS` | `30` | How long a reading of the whole home is reused before asking Hive again. A conversation often makes several calls in a row, and this keeps them to one request. Every change clears the cache, and tools take `fresh: true` to skip it. `0` turns the cache off. |
 | `HIVE_TIMEOUT_MS` | `30000` | Timeout for each request to Hive, in milliseconds. |
 
-hive-mcp also retries a few times, with increasing waits, when Hive answers `429 Too Many Requests` or `503`.
+hive-mcp also retries a few times, with increasing waits, when Hive answers `429 Too Many Requests`, and for reads also `502` or `503`. A change (a `POST`) is never repeated after a `502` or `503`, since Hive may already have made it. Only a `401` makes it refresh the login. It never follows redirects, and refuses responses larger than 64 MiB.
 
 ## MCP transport
 
@@ -155,7 +155,7 @@ The [tool reference](tools.md) lists the tools in each toolset. Some suggested s
 
 ## Advanced: Hive's endpoints
 
-You shouldn't need these. They exist in case Hive moves something before hive-mcp catches up.
+You shouldn't need these. They exist in case Hive moves something before hive-mcp catches up. They must be `https://` URLs (plain `http://` is only accepted for `localhost` or a loopback address, such as a local mock) and can't contain a username or password.
 
 | Variable | Default | Description |
 |---|---|---|

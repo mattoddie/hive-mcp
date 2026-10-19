@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"strings"
@@ -75,7 +74,10 @@ func (c *cognito) call(ctx context.Context, action string, in, out any) error {
 		return fmt.Errorf("could not reach Hive's login service (AWS Cognito): %w", err)
 	}
 	defer resp.Body.Close()
-	data, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	data, err := readBody(resp.Body)
+	if err != nil {
+		return fmt.Errorf("could not read the answer from Hive's login service (AWS Cognito): %w", err)
+	}
 	if resp.StatusCode/100 != 2 {
 		var e struct {
 			Type    string `json:"__type"`
@@ -177,7 +179,10 @@ func discoverCognito(ctx context.Context, hc *http.Client, ssoURL string) (poolI
 		return "", "", fmt.Errorf("could not reach Hive's sign-in page %s to look up its login settings: %w", ssoURL, err)
 	}
 	defer resp.Body.Close()
-	page, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	page, err := readBody(resp.Body)
+	if err != nil {
+		return "", "", fmt.Errorf("could not read Hive's sign-in page %s: %w", ssoURL, err)
+	}
 	if resp.StatusCode/100 != 2 {
 		return "", "", fmt.Errorf("hive's sign-in page %s returned HTTP %d", ssoURL, resp.StatusCode)
 	}
