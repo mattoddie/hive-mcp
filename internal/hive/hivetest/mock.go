@@ -153,6 +153,14 @@ func (m *Mock) ExpireRefreshTokens() {
 	m.refresh = map[string]string{}
 }
 
+// RefreshTokenValid reports whether Cognito would still accept a refresh token.
+func (m *Mock) RefreshTokenValid(token string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, ok := m.refresh[token]
+	return ok
+}
+
 // ForgetDevices forgets every remembered device.
 func (m *Mock) ForgetDevices() {
 	m.mu.Lock()
@@ -380,6 +388,7 @@ func (m *Mock) cognito(w http.ResponseWriter, r *http.Request) {
 			Salt             string
 		}
 		DeviceRememberedStatus string
+		Token                  string
 	}
 	if r.Header.Get("Content-Type") != "application/x-amz-json-1.1" || json.NewDecoder(r.Body).Decode(&in) != nil {
 		cognitoErr(w, "SerializationException", "bad request")
@@ -520,6 +529,14 @@ func (m *Mock) cognito(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		d.remembered = in.DeviceRememberedStatus == "remembered"
+		writeJSON(w, 200, map[string]any{})
+
+	case action == "RevokeToken":
+		if in.ClientId != ClientID {
+			cognitoErr(w, "UnauthorizedException", "Client is not authorized.")
+			return
+		}
+		delete(m.refresh, in.Token) // Cognito answers 200 for an unknown token too
 		writeJSON(w, 200, map[string]any{})
 
 	case action == "ForgetDevice":

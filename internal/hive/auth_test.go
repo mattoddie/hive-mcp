@@ -285,9 +285,13 @@ func TestLogoutForgetsDevice(t *testing.T) {
 	defer m.Server.Close()
 	c, file := newClient(t, m)
 	login(t, c)
-	forgot, err := c.Auth.Logout(ctx)
-	if err != nil || !forgot || m.RememberedDevices() != 0 {
-		t.Errorf("logout: %v %v %d", forgot, err, m.RememberedDevices())
+	saved, _ := hive.TokenStore{File: file}.Load()
+	res, err := c.Auth.Logout(ctx)
+	if err != nil || !res.ForgotDevice || !res.RevokedTokens || m.RememberedDevices() != 0 {
+		t.Errorf("logout: %+v %v %d", res, err, m.RememberedDevices())
+	}
+	if countCalls(m, "RevokeToken") != 1 || m.RefreshTokenValid(saved.RefreshToken) {
+		t.Errorf("refresh token not revoked: %v", m.Cognito)
 	}
 	if _, err := os.Stat(file); !os.IsNotExist(err) {
 		t.Errorf("token file still there: %v", err)
@@ -385,5 +389,47 @@ func TestTooManyWrongCodesEndsTheLogin(t *testing.T) {
 	}
 	if _, err := c.Auth.CompleteLogin(ctx, hivetest.SMSCode); err == nil || !strings.Contains(err.Error(), "no login waiting") {
 		t.Errorf("right code after too many wrong ones: %v", err)
+	}
+}
+
+func TestLogoutRenewsAnExpiredAccessTokenToForgetTheDevice(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	c, _ := newClient(t, m)
+	login(t, c)
+	m.ExpireTokens()
+	newClock(c.Auth).advance(2 * time.Hour)
+	res, err := c.Auth.Logout(ctx)
+	if err != nil || !res.ForgotDevice || !res.RevokedTokens || m.RememberedDevices() != 0 {
+		t.Errorf("logout: %+v %v (devices %d, calls %v)", res, err, m.RememberedDevices(), m.Cognito)
+	}
+}
+
+func TestDeletedTokenFileMeansLoggedOut(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	c, file := newClient(t, m)
+	login(t, c)
+	if _, err := c.Nodes(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+	// Another process (`hive-mcp logout`, or someone with rm) deletes the file.
+	if err := os.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+	if c.Auth.HasCredentials() {
+		t.Error("still has credentials after the token file was deleted")
+	}
+	// Even once the in-memory token would need refreshing, nothing logs back in or rewrites the file.
+	m.ExpireTokens()
+	newClock(c.Auth).advance(2 * time.Hour)
+	if _, err := c.Nodes(ctx, true); !hive.IsNotLoggedIn(err) {
+		t.Errorf("expected not logged in, got %v", err)
+	}
+	if _, err := os.Stat(file); !os.IsNotExist(err) {
+		t.Errorf("token file came back: %v", err)
+	}
+	if st := c.Auth.Status(); st["logged_in"] != false || st["device_remembered"] != false {
+		t.Errorf("status: %v", st)
 	}
 }

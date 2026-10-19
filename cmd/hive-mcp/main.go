@@ -205,14 +205,17 @@ func logout() error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	forgot, err := client.Auth.Logout(ctx)
+	res, err := client.Auth.Logout(ctx)
 	if err != nil {
 		return err
 	}
-	if forgot {
+	if res.ForgotDevice {
 		fmt.Fprintln(os.Stderr, "Hive has forgotten this server's remembered device.")
 	} else {
-		fmt.Fprintln(os.Stderr, "Couldn't ask Hive to forget the remembered device (the login had expired, or there wasn't one).")
+		fmt.Fprintln(os.Stderr, "Couldn't ask Hive to forget the remembered device (the login had run out, or there wasn't one). You can remove it in the Hive app or website.")
+	}
+	if res.RevokedTokens {
+		fmt.Fprintln(os.Stderr, "Hive has revoked this server's tokens.")
 	}
 	fmt.Fprintf(os.Stderr, "Deleted %s.\n", cfg.Hive.TokenFile)
 	return nil

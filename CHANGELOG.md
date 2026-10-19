@@ -15,6 +15,8 @@ This release follows a security review. Read **Breaking changes** before upgradi
 ### Security
 
 - `hive_auth_start` (and `hive-mcp login`) won't ask Hive for another SMS code within a minute of the last one, or try again within five minutes of a login Hive refused. Five wrong codes end a pending login.
+- `hive-mcp logout` now also revokes the refresh token with Cognito's `RevokeToken`, and renews an expired access token first so it can still ask Hive to forget the remembered device. Before, it only forgot the device if the access token hadn't expired.
+- A running server treats a deleted token file as logged out and drops the tokens and device it holds in memory. Before, a refresh could write the deleted file back.
 
 ## [0.1.1] - 2026-10-16
 

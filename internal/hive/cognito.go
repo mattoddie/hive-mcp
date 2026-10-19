@@ -158,6 +158,11 @@ func (c *cognito) forgetDevice(ctx context.Context, accessToken, deviceKey strin
 	return c.call(ctx, "ForgetDevice", map[string]any{"AccessToken": accessToken, "DeviceKey": deviceKey}, nil)
 }
 
+// revokeToken revokes a refresh token and the ID and access tokens issued with it.
+func (c *cognito) revokeToken(ctx context.Context, refreshToken string) error {
+	return c.call(ctx, "RevokeToken", map[string]any{"Token": refreshToken, "ClientId": c.clientID}, nil)
+}
+
 // ssoAssignment matches the window.X="..." assignments on Hive's sign-in page.
 var ssoAssignment = regexp.MustCompile(`window\.(\w+)\s*=\s*["']([^"']*)["']`)
 

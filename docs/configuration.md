@@ -53,7 +53,7 @@ Running `login` again later doesn't send a code if the server is still a remembe
 
 ### Logging out
 
-`hive-mcp logout` asks Hive to forget this server's remembered device (if the login is still valid) and deletes the token file. If you change your Hive password, update `HIVE_PASSWORD` too, or the server can't log in again by itself. If it then asks for a new login, run `hive-mcp login` again.
+`hive-mcp logout` asks Hive to forget this server's remembered device and to revoke its refresh token (renewing an expired login first so it can), then deletes the token file. A running server notices the file has gone and drops the login it holds in memory too, so it can't log itself back in or write the file again. If you change your Hive password, update `HIVE_PASSWORD` too, or the server can't log in again by itself. If it then asks for a new login, run `hive-mcp login` again.
 
 ## What the assistant may do
 

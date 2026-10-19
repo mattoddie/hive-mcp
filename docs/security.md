@@ -48,7 +48,7 @@ The best defence is to limit what's possible, not to rely on the model behaving.
 It's written atomically with mode `0600` in a directory with mode `0700`, owned by the container's non-root user.
 
 - Treat the file, the volume and any backups of it like a password. Don't commit it, copy it to other machines, or put it in a shared folder. `tokens.json` is in `.gitignore` and `.dockerignore`.
-- To log hive-mcp out, run `hive-mcp logout`. It asks Hive to forget the remembered device and deletes the file. Changing your Hive password means a copy of the file can't be used to log in again, though its current tokens may keep working until they expire.
+- To log hive-mcp out, run `hive-mcp logout`. It asks Hive to forget the remembered device and revoke the refresh token, then deletes the file. A running server treats a deleted token file as logged out. Changing your Hive password means a copy of the file can't be used to log in again, though its current tokens may keep working until they expire.
 - If you think the file has leaked, change your Hive password, update `HIVE_PASSWORD`, and log in again with `hive-mcp login`. Whether a password change also cancels existing tokens is up to Hive and hasn't been confirmed.
 
 ## Your Hive password
