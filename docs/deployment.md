@@ -68,7 +68,7 @@ The image's entrypoint is the `hive-mcp` binary, so you can run any of its comma
 | `login` | Logs in to Hive with `HIVE_USERNAME`, `HIVE_PASSWORD` and the SMS code Hive sends, registers this server as a remembered device, and saves the login to `HIVE_TOKEN_FILE`. Needs a terminal (`docker run -it`). |
 | `logout` | Asks Hive to forget this server's remembered device and deletes `HIVE_TOKEN_FILE` |
 | `status` | Prints the login status as JSON: the account, whether this server is a remembered device, and when the token expires. Never prints tokens or secrets. |
-| `healthcheck` | Exits with `0` if the HTTP server answers `/health`. Used by the image's `HEALTHCHECK`. |
+| `healthcheck` | Exits with `0` if the HTTP server answers `/health`. It asks `MCP_HTTP_HOST` (or loopback when that is `0.0.0.0` or `::`) on `MCP_HTTP_PORT`, `_FILE` variants included. Used by the image's `HEALTHCHECK`. |
 | `version` | Prints the version |
 
 ## Image tags

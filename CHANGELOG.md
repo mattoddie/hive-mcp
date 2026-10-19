@@ -10,6 +10,9 @@ This release follows a security review. Read **Breaking changes** before upgradi
 
 ### Breaking changes
 
+- `MCP_AUTH_TOKEN` must be at least 16 characters, and `MCP_ALLOW_UNAUTHENTICATED=true` now also needs `MCP_ALLOWED_HOSTS`. The server refuses to start otherwise.
+- With `MCP_ALLOWED_HOSTS` set, browser requests whose `Origin` isn't on the list are refused. An entry without a port matches only the default port (80 or 443) in an `Origin`, so list `host:port` for a page on another port.
+- `/mcp` only accepts `POST` with a JSON body (other methods get `405`, bodies over 1 MiB `413`).
 - `hive_auth_start` and `hive_auth_complete` are only registered with the new `HIVE_ALLOW_LOGIN_TOOLS=true`. They log in with the password and can make Hive text an SMS code, so a model calling them in a loop could text you repeatedly or get the account locked. `hive-mcp login` in a terminal works as before.
 - Heating targets above 25 °C are refused unless you raise the new `HIVE_MAX_TEMP` (it was 32 °C).
 - `hive_set_heating_mode` with `mode: manual`, `hive_set_heating_temperature` with `mode: manual` (or on a zone already in manual) and `hive_set_hot_water_mode` with `mode: on` need the new `confirm: true` argument, because those settings last indefinitely. `hive_set_holiday_mode` refuses an end more than 60 days after the start.
@@ -20,6 +23,8 @@ This release follows a security review. Read **Breaking changes** before upgradi
 - `hive-mcp logout` now also revokes the refresh token with Cognito's `RevokeToken`, and renews an expired access token first so it can still ask Hive to forget the remembered device. Before, it only forgot the device if the access token hadn't expired.
 - A running server treats a deleted token file as logged out and drops the tokens and device it holds in memory. Before, a refresh could write the deleted file back.
 - Heating targets are capped by the new `HIVE_MAX_TEMP` (default 25 °C; Hive allows up to 32) for every mode, boost and holiday mode. Holiday mode can last at most 60 days.
+- The HTTP server checks `Origin` against `MCP_ALLOWED_HOSTS` (rejecting `null` and empty origins), logs a warning when running unauthenticated, and sets read and idle timeouts.
+- `hive-mcp healthcheck` checks the configured `MCP_HTTP_HOST` and port (including `MCP_HTTP_PORT_FILE`) instead of always `127.0.0.1` and `MCP_HTTP_PORT`.
 
 ## [0.1.1] - 2026-10-16
 

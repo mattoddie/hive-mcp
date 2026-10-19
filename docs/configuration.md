@@ -94,15 +94,15 @@ hive-mcp also retries a few times, with increasing waits, when Hive answers `429
 | `MCP_TRANSPORT` | `http` in the Docker image (`stdio` for the binary) | `http` for Streamable HTTP, or `stdio`. |
 | `MCP_HTTP_HOST` | `127.0.0.1` (`0.0.0.0` in the Docker image) | Address to listen on (HTTP only). |
 | `MCP_HTTP_PORT` | `8080` | Port to listen on (HTTP only). |
-| `MCP_AUTH_TOKEN` | (required for http) | Every request to `/mcp` must send `Authorization: Bearer <token>`. The server refuses to start in http mode without it. Generate one with `openssl rand -hex 32`. |
-| `MCP_ALLOW_UNAUTHENTICATED` | `false` | Start the http transport without `MCP_AUTH_TOKEN`. Only for a server that sits behind something else that authenticates every request. |
-| `MCP_ALLOWED_HOSTS` | | Comma-separated allow-list of `Host` header values, such as `hive-mcp.lan,hive-mcp.lan:8080`. Requests with any other `Host` are rejected, which protects against DNS-rebinding attacks from web pages in your browser. |
+| `MCP_AUTH_TOKEN` | (required for http) | Every request to `/mcp` must send `Authorization: Bearer <token>`. The server refuses to start in http mode without it, or if it's shorter than 16 characters. Generate one with `openssl rand -hex 32`. |
+| `MCP_ALLOW_UNAUTHENTICATED` | `false` | Start the http transport without `MCP_AUTH_TOKEN`. Only for a server that sits behind something else that authenticates every request. It also needs `MCP_ALLOWED_HOSTS`, and the server logs a warning at startup. |
+| `MCP_ALLOWED_HOSTS` | | Comma-separated allow-list of `host` or `host:port` entries, such as `hive-mcp.lan,hive-mcp.lan:8080`. Requests whose `Host` header isn't listed are rejected (an entry without a port matches any port), and so are requests from browser pages whose `Origin` isn't listed (an entry without a port matches only the default port, 80 or 443; list `host:port` for a page on another port). `Origin: null` or an empty `Origin` is always rejected. This protects against DNS-rebinding and cross-site attacks from web pages in your browser. |
 
 The HTTP server exposes these endpoints:
 
 | Path | Method | Purpose |
 |---|---|---|
-| `/mcp` | `POST` | The MCP endpoint (stateless Streamable HTTP, JSON responses). Request bodies are limited to 1 MiB. |
+| `/mcp` | `POST` | The MCP endpoint (stateless Streamable HTTP, JSON responses). Other methods get `405`. Bodies must be JSON and at most 1 MiB. |
 | `/health`, `/healthz` | `GET` | Liveness check. Returns `{"status":"ok"}` and doesn't contact Hive. |
 
 ## Docker secrets (`_FILE` variables)

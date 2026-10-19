@@ -115,11 +115,20 @@ func TestHTTPNeedsAuthToken(t *testing.T) {
 		t.Fatalf("http without a token: got %v", err)
 	}
 	base["MCP_ALLOW_UNAUTHENTICATED"] = "true"
-	if _, err := Load(MapEnv(base)); err != nil {
+	if _, err := Load(MapEnv(base)); err == nil || !strings.Contains(err.Error(), "needs MCP_ALLOWED_HOSTS") {
+		t.Fatalf("unauthenticated without an allow-list: %v", err)
+	}
+	base["MCP_ALLOWED_HOSTS"] = "hive-mcp.lan"
+	if cfg, err := Load(MapEnv(base)); err != nil || !cfg.HTTP.AllowUnauthenticated {
 		t.Fatalf("explicit opt-out: %v", err)
 	}
 	delete(base, "MCP_ALLOW_UNAUTHENTICATED")
-	base["MCP_AUTH_TOKEN"] = "secret-token"
+	delete(base, "MCP_ALLOWED_HOSTS")
+	base["MCP_AUTH_TOKEN"] = "short-token"
+	if _, err := Load(MapEnv(base)); err == nil || !strings.Contains(err.Error(), "at least 16") {
+		t.Fatalf("short token: %v", err)
+	}
+	base["MCP_AUTH_TOKEN"] = "a-long-enough-secret-token"
 	if _, err := Load(MapEnv(base)); err != nil {
 		t.Fatalf("with a token: %v", err)
 	}

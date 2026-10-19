@@ -117,7 +117,11 @@ func serve() error {
 		}
 		return err
 	}
-	srv := &http.Server{Addr: httpserver.Addr(cfg.HTTP), Handler: httpserver.Handler(cfg.HTTP, server), ReadHeaderTimeout: 10 * time.Second}
+	// No WriteTimeout: a tool call can legitimately take minutes.
+	srv := &http.Server{
+		Addr: httpserver.Addr(cfg.HTTP), Handler: httpserver.Handler(cfg.HTTP, server),
+		ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 60 * time.Second, IdleTimeout: 120 * time.Second,
+	}
 	go func() {
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -231,16 +235,18 @@ func status() error {
 	return nil
 }
 
+// healthcheck asks the running server's /health, at the address and port it
+// was configured with (including _FILE variables).
 func healthcheck() error {
-	if os.Getenv("MCP_TRANSPORT") == "stdio" {
+	cfg, err := config.Load(os.LookupEnv)
+	if err != nil {
+		return err
+	}
+	if cfg.Transport == "stdio" {
 		return nil
 	}
-	port := os.Getenv("MCP_HTTP_PORT")
-	if port == "" {
-		port = "8080"
-	}
 	c := &http.Client{Timeout: 3 * time.Second}
-	resp, err := c.Get("http://127.0.0.1:" + port + "/health")
+	resp, err := c.Get(httpserver.HealthURL(cfg.HTTP))
 	if err != nil {
 		return err
 	}

@@ -34,6 +34,9 @@ const (
 	DefaultMaxTemp = 25.0
 )
 
+// MinAuthTokenLength is the shortest MCP_AUTH_TOKEN accepted.
+const MinAuthTokenLength = 16
+
 // Hive holds the Hive account and API settings.
 type Hive struct {
 	Username string
@@ -81,6 +84,8 @@ type HTTP struct {
 	Port         int
 	AuthToken    string
 	AllowedHosts []string
+	// AllowUnauthenticated serves http without MCP_AUTH_TOKEN (MCP_ALLOW_UNAUTHENTICATED).
+	AllowUnauthenticated bool
 }
 
 // Config is the whole configuration.
@@ -286,13 +291,22 @@ func Load(env Env) (*Config, error) {
 			hs.AllowedHosts = append(hs.AllowedHosts, strings.ToLower(host))
 		}
 	}
-	unauth, err := boolValue("MCP_ALLOW_UNAUTHENTICATED", get("MCP_ALLOW_UNAUTHENTICATED"), false)
-	if err != nil {
+	if hs.AllowUnauthenticated, err = boolValue("MCP_ALLOW_UNAUTHENTICATED", get("MCP_ALLOW_UNAUTHENTICATED"), false); err != nil {
 		return nil, err
 	}
-	// An HTTP server without a token would hand every enabled tool to anyone who can reach the port.
-	if cfg.Transport == "http" && hs.AuthToken == "" && !unauth {
-		return nil, errors.New("MCP_AUTH_TOKEN is required for the http transport (generate one with: openssl rand -hex 32); set MCP_ALLOW_UNAUTHENTICATED=true only behind something else that authenticates")
+	if hs.AuthToken != "" && len(hs.AuthToken) < MinAuthTokenLength {
+		return nil, fmt.Errorf("MCP_AUTH_TOKEN must be at least %d characters (generate one with: openssl rand -hex 32)", MinAuthTokenLength)
+	}
+	if cfg.Transport == "http" && hs.AuthToken == "" {
+		// An HTTP server without a token would hand every enabled tool to anyone who can reach the port.
+		if !hs.AllowUnauthenticated {
+			return nil, errors.New("MCP_AUTH_TOKEN is required for the http transport (generate one with: openssl rand -hex 32); set MCP_ALLOW_UNAUTHENTICATED=true only behind something else that authenticates")
+		}
+		// Without a token, the Host and Origin checks are all that stop a web page
+		// the user visits from reaching the server through DNS rebinding.
+		if len(hs.AllowedHosts) == 0 {
+			return nil, errors.New("MCP_ALLOW_UNAUTHENTICATED=true needs MCP_ALLOWED_HOSTS: without a token, the Host and Origin allow-list is what stops web pages in your browser reaching the server through DNS rebinding. Set it to the hostname(s) clients use, such as hive-mcp.lan")
+		}
 	}
 	return cfg, firstErr
 }
