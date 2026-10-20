@@ -117,7 +117,11 @@ func serve() error {
 		}
 		return err
 	}
-	srv := &http.Server{Addr: httpserver.Addr(cfg.HTTP), Handler: httpserver.Handler(cfg.HTTP, server), ReadHeaderTimeout: 10 * time.Second}
+	// No WriteTimeout: a tool call can legitimately take minutes.
+	srv := &http.Server{
+		Addr: httpserver.Addr(cfg.HTTP), Handler: httpserver.Handler(cfg.HTTP, server),
+		ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 60 * time.Second, IdleTimeout: 120 * time.Second,
+	}
 	go func() {
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -205,14 +209,17 @@ func logout() error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	forgot, err := client.Auth.Logout(ctx)
+	res, err := client.Auth.Logout(ctx)
 	if err != nil {
 		return err
 	}
-	if forgot {
+	if res.ForgotDevice {
 		fmt.Fprintln(os.Stderr, "Hive has forgotten this server's remembered device.")
 	} else {
-		fmt.Fprintln(os.Stderr, "Couldn't ask Hive to forget the remembered device (the login had expired, or there wasn't one).")
+		fmt.Fprintln(os.Stderr, "Couldn't ask Hive to forget the remembered device (the login had run out, or there wasn't one). You can remove it in the Hive app or website.")
+	}
+	if res.RevokedTokens {
+		fmt.Fprintln(os.Stderr, "Hive has revoked this server's tokens.")
 	}
 	fmt.Fprintf(os.Stderr, "Deleted %s.\n", cfg.Hive.TokenFile)
 	return nil
@@ -228,16 +235,18 @@ func status() error {
 	return nil
 }
 
+// healthcheck asks the running server's /health, at the address and port it
+// was configured with (including _FILE variables).
 func healthcheck() error {
-	if os.Getenv("MCP_TRANSPORT") == "stdio" {
+	cfg, err := config.Load(os.LookupEnv)
+	if err != nil {
+		return err
+	}
+	if cfg.Transport == "stdio" {
 		return nil
 	}
-	port := os.Getenv("MCP_HTTP_PORT")
-	if port == "" {
-		port = "8080"
-	}
 	c := &http.Client{Timeout: 3 * time.Second}
-	resp, err := c.Get("http://127.0.0.1:" + port + "/health")
+	resp, err := c.Get(httpserver.HealthURL(cfg.HTTP))
 	if err != nil {
 		return err
 	}

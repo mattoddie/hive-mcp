@@ -52,10 +52,15 @@ const (
 	pendingLoginTTL = 3 * time.Minute
 	// reloginBackoff stops repeated failed logins, which could get the account locked.
 	reloginBackoff = 5 * time.Minute
+	// codeCooldown is the least time between two logins that text an SMS code,
+	// so a loop (or a model) can't keep sending text messages.
+	codeCooldown = time.Minute
+	// maxCodeAttempts is how many wrong SMS codes a pending login takes before it has to start again.
+	maxCodeAttempts = 5
 )
 
 // ErrNotLoggedIn is returned when there are no tokens and the server can't log in by itself.
-var ErrNotLoggedIn = errors.New("not logged in to Hive. Run `hive-mcp login` once (in Docker: `docker compose run --rm hive-mcp login`) to enter the SMS code and remember this server, or use the hive_auth_start tool")
+var ErrNotLoggedIn = errors.New("not logged in to Hive. Run `hive-mcp login` once (in Docker: `docker compose run --rm hive-mcp login`) to enter the SMS code and remember this server, or use the hive_auth_start tool if HIVE_ALLOW_LOGIN_TOOLS is on")
 
 // TokenStore reads and writes the token file atomically, readable only by its owner.
 type TokenStore struct{ File string }
@@ -79,20 +84,50 @@ func (s TokenStore) Load() (*Tokens, error) {
 	return &t, nil
 }
 
-// Save writes the tokens via a temporary file and rename, so a crash never leaves a half-written file.
+// Save writes the tokens to a new temporary file in the same directory,
+// syncs it and renames it over the token file, so a crash never leaves a
+// half-written file and two processes saving at once (both PID 1 in their
+// containers) can't write to the same temporary file.
 func (s TokenStore) Save(t *Tokens) error {
-	if err := os.MkdirAll(filepath.Dir(s.File), 0o700); err != nil {
+	dir := filepath.Dir(s.File)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	b, _ := json.MarshalIndent(t, "", "  ")
-	tmp := fmt.Sprintf("%s.%d.tmp", s.File, os.Getpid())
-	if err := os.WriteFile(tmp, append(b, '\n'), 0o600); err != nil {
+	f, err := os.CreateTemp(dir, "."+filepath.Base(s.File)+".*.tmp") // mode 0600
+	if err != nil {
 		return err
 	}
-	if err := os.Chmod(tmp, 0o600); err != nil {
+	tmp := f.Name()
+	saved := false
+	defer func() {
+		if !saved {
+			f.Close()
+			os.Remove(tmp)
+		}
+	}()
+	if err := f.Chmod(0o600); err != nil {
 		return err
 	}
-	return os.Rename(tmp, s.File)
+	if _, err := f.Write(append(b, '\n')); err != nil {
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, s.File); err != nil {
+		return err
+	}
+	saved = true
+	// Make the rename itself durable; not every filesystem supports this.
+	if d, err := os.Open(dir); err == nil {
+		_ = d.Sync()
+		d.Close()
+	}
+	return nil
 }
 
 // Delete removes the token file.
@@ -110,6 +145,7 @@ type pendingLogin struct {
 	userID   string // USER_ID_FOR_SRP
 	username string
 	created  time.Time
+	attempts int // wrong codes entered so far
 }
 
 // LoginResult describes a login step without revealing any secrets.
@@ -143,7 +179,9 @@ type Auth struct {
 	ids            [2]string // discovered pool and client IDs
 	lastError      string
 	persistWarning string
-	reloginFailed  time.Time
+	reloginFailed  time.Time // last failed automatic login, for any reason
+	loginFailed    time.Time // last login Cognito refused for a reason other than an unknown device
+	codeSent       time.Time // last time a login made Hive text an SMS code
 	fileMod        time.Time // modification time of the token file when last read or written
 
 	refreshMu sync.Mutex // serialises refreshes and logins
@@ -171,10 +209,20 @@ func (a *Auth) modTime() time.Time {
 }
 
 // reloadLocked picks up tokens written by another process, such as
-// `hive-mcp login` run while the server is up. Callers hold a.mu.
+// `hive-mcp login` run while the server is up. A token file that has been
+// deleted since it was read or written (by `hive-mcp logout`, or by hand)
+// means logged out: the tokens and device are dropped from memory too, so
+// they can't be used or saved again. Callers hold a.mu.
 func (a *Auth) reloadLocked() {
 	m := a.modTime()
-	if m.IsZero() || m.Equal(a.fileMod) {
+	if m.IsZero() {
+		if !a.fileMod.IsZero() {
+			a.tokens, a.pending, a.lastError = nil, nil, ""
+			a.fileMod = time.Time{}
+		}
+		return
+	}
+	if m.Equal(a.fileMod) {
 		return
 	}
 	a.fileMod = m
@@ -184,7 +232,7 @@ func (a *Auth) reloadLocked() {
 	}
 	a.tokens = t
 	a.lastError = ""
-	a.reloginFailed = time.Time{}
+	a.reloginFailed, a.loginFailed = time.Time{}, time.Time{}
 }
 
 func normaliseUsername(u string) string { return strings.ToLower(strings.TrimSpace(u)) }
@@ -311,7 +359,7 @@ func (a *Auth) Refresh(ctx context.Context, rejected string) (string, error) {
 		}
 		res, err := c.initiateAuth(ctx, "REFRESH_TOKEN_AUTH", params)
 		if err == nil && res.AuthenticationResult != nil {
-			return a.accept(c, res.AuthenticationResult, nil, false)
+			return a.accept(c, res.AuthenticationResult, nil, false, true)
 		}
 		if err == nil {
 			err = fmt.Errorf("unexpected %s challenge when refreshing the login", res.ChallengeName)
@@ -322,6 +370,7 @@ func (a *Auth) Refresh(ctx context.Context, rejected string) (string, error) {
 		// The refresh token has expired or been revoked. Forget it, so it
 		// isn't tried again, and log in again below.
 		a.mu.Lock()
+		a.reloadLocked()
 		if a.tokens != nil && a.tokens.RefreshToken == refreshToken {
 			t := *a.tokens
 			t.RefreshToken, t.IDToken, t.AccessToken = "", "", ""
@@ -372,10 +421,13 @@ func (a *Auth) relogin(ctx context.Context) (string, error) {
 	if err != nil {
 		a.mu.Lock()
 		a.reloginFailed = a.now()
+		if credentialFailure(err) {
+			a.loginFailed = a.reloginFailed
+		}
 		a.mu.Unlock()
 		return "", a.fail(loginError(err))
 	}
-	return a.accept(c, res.AuthenticationResult, &Tokens{Username: username, NoMFA: device == nil}, true)
+	return a.accept(c, res.AuthenticationResult, &Tokens{Username: username, NoMFA: device == nil}, true, true)
 }
 
 func (a *Auth) fail(err error) error {
@@ -517,6 +569,11 @@ func loginError(err error) error {
 // StartLogin logs in with the username and password. With a remembered
 // device, that's usually the end of it. Otherwise Hive texts a code to the
 // account's phone, and CompleteLogin finishes with it.
+//
+// A model can call it (hive_auth_start), so it won't try again within
+// reloginBackoff of a login Hive refused, which stops a wrong password from
+// getting the account locked, or within codeCooldown of the last SMS code,
+// which stops it from texting the user over and over.
 func (a *Auth) StartLogin(ctx context.Context) (*LoginResult, error) {
 	a.refreshMu.Lock()
 	defer a.refreshMu.Unlock()
@@ -524,9 +581,26 @@ func (a *Auth) StartLogin(ctx context.Context) (*LoginResult, error) {
 	a.reloadLocked()
 	username, password := normaliseUsername(a.cfg.Username), a.cfg.Password
 	device := a.deviceLocked()
+	failed, sent := a.loginFailed, a.codeSent
 	a.mu.Unlock()
 	if username == "" || password == "" {
 		return nil, errors.New("set HIVE_USERNAME (the email address you use in the Hive app) and HIVE_PASSWORD before logging in")
+	}
+	now := a.now()
+	if !failed.IsZero() && now.Sub(failed) < reloginBackoff {
+		return nil, fmt.Errorf("hive refused a login recently; not trying again until %s to avoid locking the account. Check HIVE_USERNAME and HIVE_PASSWORD in the meantime", failed.Add(reloginBackoff).UTC().Format(time.RFC3339))
+	}
+	// Only a login without a remembered device texts a code.
+	coolingDown := func() error {
+		if !sent.IsZero() && now.Sub(sent) < codeCooldown {
+			return fmt.Errorf("hive texted a code less than a minute ago. Enter that code (hive_auth_complete), or wait until %s before asking for a new one", sent.Add(codeCooldown).UTC().Format(time.RFC3339))
+		}
+		return nil
+	}
+	if device == nil {
+		if err := coolingDown(); err != nil {
+			return nil, err
+		}
 	}
 	c, err := a.cognito(ctx)
 	if err != nil {
@@ -535,15 +609,23 @@ func (a *Auth) StartLogin(ctx context.Context) (*LoginResult, error) {
 	res, userID, err := a.srpLogin(ctx, c, username, password, device)
 	if err != nil && device != nil && deviceUnknown(err) {
 		// The remembered device may have been forgotten: try once as a new one.
+		if err := coolingDown(); err != nil {
+			return nil, err
+		}
 		device = nil
 		res, userID, err = a.srpLogin(ctx, c, username, password, nil)
 	}
 	if err != nil {
+		if credentialFailure(err) {
+			a.mu.Lock()
+			a.loginFailed = a.now()
+			a.mu.Unlock()
+		}
 		return nil, loginError(err)
 	}
 	switch {
 	case res.AuthenticationResult != nil:
-		if _, err := a.accept(c, res.AuthenticationResult, &Tokens{Username: username, NoMFA: device == nil}, device != nil); err != nil {
+		if _, err := a.accept(c, res.AuthenticationResult, &Tokens{Username: username, NoMFA: device == nil}, device != nil, false); err != nil {
 			return nil, err
 		}
 		out := a.loginResult(username)
@@ -552,10 +634,20 @@ func (a *Auth) StartLogin(ctx context.Context) (*LoginResult, error) {
 	case res.ChallengeName == "SMS_MFA":
 		a.mu.Lock()
 		a.pending = &pendingLogin{cognito: c, session: res.Session, userID: userID, username: username, created: a.now()}
+		a.codeSent = a.now()
 		a.mu.Unlock()
 		return &LoginResult{CodeRequired: true, CodeSentTo: res.ChallengeParameters["CODE_DELIVERY_DESTINATION"], Username: username}, nil
 	}
 	return nil, fmt.Errorf("hive's login asked for %s, which hive-mcp doesn't support", describeChallenge(res.ChallengeName))
+}
+
+// credentialFailure reports whether Cognito refused a login for a reason that
+// trying again straight away could make worse, such as a wrong password or
+// rate limiting, rather than because the remembered device is unknown or
+// Cognito couldn't be reached.
+func credentialFailure(err error) bool {
+	var ce *CognitoError
+	return errors.As(err, &ce) && !deviceUnknown(err)
 }
 
 var codeRe = regexp.MustCompile(`^\d{4,8}$`)
@@ -589,6 +681,14 @@ func (a *Auth) CompleteLogin(ctx context.Context, code string) (*LoginResult, er
 	res, err := p.cognito.respond(ctx, "SMS_MFA", p.session, map[string]string{"SMS_MFA_CODE": code, "USERNAME": p.userID})
 	if err != nil {
 		if isCognito(err, "CodeMismatchException") {
+			a.mu.Lock()
+			defer a.mu.Unlock()
+			if a.pending == p {
+				if p.attempts++; p.attempts >= maxCodeAttempts {
+					a.pending = nil
+					return nil, errors.New("too many wrong codes; start the login again")
+				}
+			}
 			return nil, ErrWrongCode
 		}
 		if isCognito(err, "NotAuthorizedException", "ExpiredCodeException") {
@@ -605,7 +705,7 @@ func (a *Auth) CompleteLogin(ctx context.Context, code string) (*LoginResult, er
 	a.mu.Lock()
 	a.pending = nil
 	a.mu.Unlock()
-	if _, err := a.accept(p.cognito, res.AuthenticationResult, &Tokens{Username: p.username}, false); err != nil {
+	if _, err := a.accept(p.cognito, res.AuthenticationResult, &Tokens{Username: p.username}, false, false); err != nil {
 		return nil, err
 	}
 	return a.loginResult(p.username), nil
@@ -623,14 +723,17 @@ func (a *Auth) loginResult(username string) *LoginResult {
 // accept stores new tokens, registers a new device when Cognito offers one,
 // and saves everything before handing out the ID token. login carries the
 // username and flags of a fresh login; nil means a refresh. keepDevice keeps
-// the remembered device when Cognito doesn't send a new one.
-func (a *Auth) accept(c *cognito, r *authenticationResult, login *Tokens, keepDevice bool) (string, error) {
+// the remembered device when Cognito doesn't send a new one. auto marks a
+// refresh or login the server made by itself, which must not bring back a
+// login that was deleted (logged out) or replaced while it ran.
+func (a *Auth) accept(c *cognito, r *authenticationResult, login *Tokens, keepDevice, auto bool) (string, error) {
 	if r.IdToken == "" {
 		return "", a.fail(errors.New("hive's login service returned no ID token"))
 	}
 	a.mu.Lock()
-	old := a.tokens
+	base := a.tokens
 	a.mu.Unlock()
+	old := base
 	if old == nil {
 		old = &Tokens{}
 	}
@@ -665,9 +768,18 @@ func (a *Auth) accept(c *cognito, r *authenticationResult, login *Tokens, keepDe
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if auto {
+		a.reloadLocked()
+		if a.tokens == nil {
+			return "", ErrNotLoggedIn
+		}
+		if a.tokens != base {
+			return a.tokens.IDToken, nil
+		}
+	}
 	a.tokens = t
 	a.lastError = ""
-	a.reloginFailed = time.Time{}
+	a.reloginFailed, a.loginFailed = time.Time{}, time.Time{}
 	if err := a.Store.Save(t); err != nil {
 		// Carry on with the in-memory tokens, but a restart would need a new login.
 		a.persistWarning = fmt.Sprintf("could not save tokens to %s: %v. They will be lost on restart; mount a writable volume there", a.cfg.TokenFile, err)
@@ -706,31 +818,54 @@ func (a *Auth) registerDevice(c *cognito, accessToken, key, groupKey string) (*D
 	return &Device{Key: key, GroupKey: groupKey, Password: password, Name: name, RegisteredAt: a.now().UTC().Format(time.RFC3339)}, nil
 }
 
-// Logout asks Hive to forget the remembered device (best effort) and deletes the token file.
-func (a *Auth) Logout(ctx context.Context) (forgotDevice bool, err error) {
+// LogoutResult says what Hive was asked to do on logout.
+type LogoutResult struct {
+	ForgotDevice  bool // Hive forgot the remembered device
+	RevokedTokens bool // Hive revoked the refresh token (and the tokens issued with it)
+}
+
+// Logout asks Hive to forget the remembered device and to revoke the refresh
+// token (both best effort), then deletes the token file. An expired access
+// token is renewed with the refresh token first, since ForgetDevice needs a
+// valid one.
+func (a *Auth) Logout(ctx context.Context) (LogoutResult, error) {
+	var out LogoutResult
 	a.refreshMu.Lock()
 	defer a.refreshMu.Unlock()
 	a.mu.Lock()
 	a.reloadLocked()
 	t := a.tokens
 	a.mu.Unlock()
-	if t != nil && t.Device != nil && t.AccessToken != "" && t.PoolID != "" {
+	if t != nil && t.PoolID != "" && t.ClientID != "" {
 		c := &cognito{http: a.http, url: a.cfg.CognitoURL, poolID: t.PoolID, clientID: t.ClientID}
 		if c.url == "" {
 			c.url = "https://cognito-idp." + config.PoolRegion(t.PoolID) + ".amazonaws.com"
 		}
-		if time.UnixMilli(t.ExpiresAt).After(a.now()) && c.forgetDevice(ctx, t.AccessToken, t.Device.Key) == nil {
-			forgotDevice = true
+		if t.Device != nil {
+			access := t.AccessToken
+			if (access == "" || !time.UnixMilli(t.ExpiresAt).Add(-expiryMargin).After(a.now())) && t.RefreshToken != "" {
+				// Only for this call: the new tokens are revoked below, not saved.
+				res, err := c.initiateAuth(ctx, "REFRESH_TOKEN_AUTH", map[string]string{"REFRESH_TOKEN": t.RefreshToken, "DEVICE_KEY": t.Device.Key})
+				if err == nil && res.AuthenticationResult != nil {
+					access = res.AuthenticationResult.AccessToken
+				}
+			}
+			if access != "" && c.forgetDevice(ctx, access, t.Device.Key) == nil {
+				out.ForgotDevice = true
+			}
+		}
+		if t.RefreshToken != "" && c.revokeToken(ctx, t.RefreshToken) == nil {
+			out.RevokedTokens = true
 		}
 	}
 	if err := a.Store.Delete(); err != nil {
-		return forgotDevice, err
+		return out, err
 	}
 	a.mu.Lock()
 	a.tokens, a.pending, a.lastError = nil, nil, ""
 	a.fileMod = time.Time{}
 	a.mu.Unlock()
-	return forgotDevice, nil
+	return out, nil
 }
 
 // deviceUnknown reports whether Cognito rejected the remembered device itself (rather than the password).

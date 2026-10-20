@@ -3,10 +3,13 @@ package hive_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/mattoddie/hive-mcp/internal/config"
 	"github.com/mattoddie/hive-mcp/internal/hive"
@@ -193,6 +196,7 @@ func TestForgottenDeviceNeedsNewLoginAndBacksOff(t *testing.T) {
 	}
 
 	// A new terminal login starts again as a new device, with an SMS code.
+	newClock(c.Auth).advance(2 * time.Minute) // past the cooldown since the first code
 	res, err := c.Auth.StartLogin(ctx)
 	if err != nil || !res.CodeRequired {
 		t.Fatalf("relogin: %+v %v", res, err)
@@ -283,9 +287,13 @@ func TestLogoutForgetsDevice(t *testing.T) {
 	defer m.Server.Close()
 	c, file := newClient(t, m)
 	login(t, c)
-	forgot, err := c.Auth.Logout(ctx)
-	if err != nil || !forgot || m.RememberedDevices() != 0 {
-		t.Errorf("logout: %v %v %d", forgot, err, m.RememberedDevices())
+	saved, _ := hive.TokenStore{File: file}.Load()
+	res, err := c.Auth.Logout(ctx)
+	if err != nil || !res.ForgotDevice || !res.RevokedTokens || m.RememberedDevices() != 0 {
+		t.Errorf("logout: %+v %v %d", res, err, m.RememberedDevices())
+	}
+	if countCalls(m, "RevokeToken") != 1 || m.RefreshTokenValid(saved.RefreshToken) {
+		t.Errorf("refresh token not revoked: %v", m.Cognito)
 	}
 	if _, err := os.Stat(file); !os.IsNotExist(err) {
 		t.Errorf("token file still there: %v", err)
@@ -310,5 +318,150 @@ func TestUnwritableTokenFileWarns(t *testing.T) {
 	login(t, c)
 	if w, _ := c.Auth.Status()["warning"].(string); !strings.Contains(w, "could not save tokens") {
 		t.Errorf("warning: %q", w)
+	}
+}
+
+// clock lets a test move the Auth's time forward.
+type clock struct{ t time.Time }
+
+func (c *clock) now() time.Time          { return c.t }
+func (c *clock) advance(d time.Duration) { c.t = c.t.Add(d) }
+func newClock(a *hive.Auth) *clock       { c := &clock{t: time.Now()}; hive.SetNow(a, c.now); return c }
+
+func TestStartLoginWaitsBeforeTextingAnotherCode(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	c, _ := newClient(t, m)
+	clk := newClock(c.Auth)
+	if res, err := c.Auth.StartLogin(ctx); err != nil || !res.CodeRequired {
+		t.Fatalf("start: %+v %v", res, err)
+	}
+	calls := len(m.Cognito)
+	if _, err := c.Auth.StartLogin(ctx); err == nil || !strings.Contains(err.Error(), "less than a minute ago") {
+		t.Errorf("second start: %v", err)
+	}
+	if m.SMSSent != 1 || len(m.Cognito) != calls {
+		t.Errorf("a second code was sent: sms %d, calls %v", m.SMSSent, m.Cognito[calls:])
+	}
+	clk.advance(61 * time.Second)
+	if res, err := c.Auth.StartLogin(ctx); err != nil || !res.CodeRequired || m.SMSSent != 2 {
+		t.Errorf("after the cooldown: %+v %v (sms %d)", res, err, m.SMSSent)
+	}
+}
+
+func TestStartLoginBacksOffAfterARefusedLogin(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	c, _ := newClient(t, m, func(h *config.Hive) { h.Password = "wrong" })
+	clk := newClock(c.Auth)
+	if _, err := c.Auth.StartLogin(ctx); err == nil || !strings.Contains(err.Error(), "HIVE_PASSWORD") {
+		t.Fatalf("wrong password: %v", err)
+	}
+	calls := len(m.Cognito)
+	for range 3 {
+		if _, err := c.Auth.StartLogin(ctx); err == nil || !strings.Contains(err.Error(), "not trying again until") {
+			t.Errorf("retry: %v", err)
+		}
+	}
+	if len(m.Cognito) != calls {
+		t.Errorf("retried during the backoff: %v", m.Cognito[calls:])
+	}
+	clk.advance(6 * time.Minute)
+	if _, err := c.Auth.StartLogin(ctx); err == nil || strings.Contains(err.Error(), "not trying again") {
+		t.Errorf("after the backoff: %v", err)
+	}
+	if len(m.Cognito) == calls {
+		t.Error("didn't try again after the backoff")
+	}
+}
+
+func TestTooManyWrongCodesEndsTheLogin(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	c, _ := newClient(t, m)
+	if _, err := c.Auth.StartLogin(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var err error
+	for range 5 {
+		_, err = c.Auth.CompleteLogin(ctx, "000000")
+	}
+	if err == nil || !strings.Contains(err.Error(), "too many wrong codes") {
+		t.Errorf("fifth wrong code: %v", err)
+	}
+	if _, err := c.Auth.CompleteLogin(ctx, hivetest.SMSCode); err == nil || !strings.Contains(err.Error(), "no login waiting") {
+		t.Errorf("right code after too many wrong ones: %v", err)
+	}
+}
+
+func TestLogoutRenewsAnExpiredAccessTokenToForgetTheDevice(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	c, _ := newClient(t, m)
+	login(t, c)
+	m.ExpireTokens()
+	newClock(c.Auth).advance(2 * time.Hour)
+	res, err := c.Auth.Logout(ctx)
+	if err != nil || !res.ForgotDevice || !res.RevokedTokens || m.RememberedDevices() != 0 {
+		t.Errorf("logout: %+v %v (devices %d, calls %v)", res, err, m.RememberedDevices(), m.Cognito)
+	}
+}
+
+func TestDeletedTokenFileMeansLoggedOut(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	c, file := newClient(t, m)
+	login(t, c)
+	if _, err := c.Nodes(ctx, true); err != nil {
+		t.Fatal(err)
+	}
+	// Another process (`hive-mcp logout`, or someone with rm) deletes the file.
+	if err := os.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+	if c.Auth.HasCredentials() {
+		t.Error("still has credentials after the token file was deleted")
+	}
+	// Even once the in-memory token would need refreshing, nothing logs back in or rewrites the file.
+	m.ExpireTokens()
+	newClock(c.Auth).advance(2 * time.Hour)
+	if _, err := c.Nodes(ctx, true); !hive.IsNotLoggedIn(err) {
+		t.Errorf("expected not logged in, got %v", err)
+	}
+	if _, err := os.Stat(file); !os.IsNotExist(err) {
+		t.Errorf("token file came back: %v", err)
+	}
+	if st := c.Auth.Status(); st["logged_in"] != false || st["device_remembered"] != false {
+		t.Errorf("status: %v", st)
+	}
+}
+
+func TestConcurrentSavesNeverCorruptTheTokenFile(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "data", "tokens.json")
+	var wg sync.WaitGroup
+	for i := range 20 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// Separate stores, like two processes that both run as PID 1.
+			if err := (hive.TokenStore{File: file}).Save(&hive.Tokens{Username: fmt.Sprintf("user-%d@example.com", i), IDToken: strings.Repeat("x", 4096)}); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
+	saved, err := hive.TokenStore{File: file}.Load()
+	if err != nil || saved == nil || !strings.HasPrefix(saved.Username, "user-") {
+		t.Fatalf("token file: %+v %v", saved, err)
+	}
+	entries, _ := os.ReadDir(filepath.Dir(file))
+	if len(entries) != 1 {
+		t.Errorf("temporary files left behind: %v", entries)
+	}
+	if st, _ := os.Stat(file); st.Mode().Perm() != 0o600 {
+		t.Errorf("mode %v", st.Mode().Perm())
+	}
+	if st, _ := os.Stat(filepath.Dir(file)); st.Mode().Perm() != 0o700 {
+		t.Errorf("directory mode %v", st.Mode().Perm())
 	}
 }

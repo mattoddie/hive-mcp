@@ -36,6 +36,10 @@ func TestGatesControlWhichToolsExist(t *testing.T) {
 			if !tool.Annotations.ReadOnlyHint && name != "hive_api_request" && !strings.HasPrefix(name, "hive_auth_") {
 				t.Errorf("%s: read tool without readOnlyHint", name)
 			}
+		case Login:
+			if tool.Annotations.ReadOnlyHint {
+				t.Errorf("%s: login tool marked read-only", name)
+			}
 		case Write:
 			if inRead {
 				t.Errorf("%s: write tool registered without HIVE_ALLOW_WRITES", name)
@@ -90,7 +94,7 @@ func TestSchemasDescribeEveryArgument(t *testing.T) {
 	}
 	tool := toolNames(t, env.session)["hive_boost_heating"]
 	temp := tool.InputSchema.(map[string]any)["properties"].(map[string]any)["temperature"].(map[string]any)
-	if temp["minimum"] != 5.0 || temp["maximum"] != 32.0 {
+	if temp["minimum"] != 5.0 || temp["maximum"] != 25.0 {
 		t.Errorf("temperature range: %v", temp)
 	}
 }
@@ -140,5 +144,22 @@ func TestNotLoggedIn(t *testing.T) {
 	msg := env.callErr("hive_get_overview", nil)
 	if !strings.Contains(msg, "hive-mcp login") || !strings.Contains(msg, "hive_auth_start") {
 		t.Errorf("error: %s", msg)
+	}
+}
+
+func TestLoginToolsNeedTheirOwnSwitch(t *testing.T) {
+	o := config.AllTools()
+	o.AllowLoginTools = false
+	names := toolNames(t, newEnv(t, o).session)
+	for _, name := range []string{"hive_auth_start", "hive_auth_complete"} {
+		if names[name] != nil {
+			t.Errorf("%s registered without HIVE_ALLOW_LOGIN_TOOLS", name)
+		}
+	}
+	if names["hive_auth_status"] == nil {
+		t.Error("hive_auth_status should always be registered")
+	}
+	if names["hive_set_heating_temperature"] == nil {
+		t.Error("the login switch shouldn't affect write tools")
 	}
 }

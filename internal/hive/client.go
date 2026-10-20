@@ -34,6 +34,22 @@ func (e *Error) Error() string { return e.Message }
 
 const maxRetries = 3
 
+// maxResponseBytes bounds every response body read from Hive or Cognito.
+const maxResponseBytes = 64 << 20
+
+// readBody reads a response body, failing clearly instead of truncating it
+// when it is larger than maxResponseBytes.
+func readBody(r io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, maxResponseBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxResponseBytes {
+		return nil, fmt.Errorf("the response is larger than %d MiB", maxResponseBytes>>20)
+	}
+	return data, nil
+}
+
 // Client calls Hive's beekeeper API (https://beekeeper.hivehome.com/1.0).
 // It sends the Cognito ID token, refreshing it once when the API rejects it,
 // retries when rate limited, and caches the "everything" read for a short
@@ -51,7 +67,9 @@ type Client struct {
 
 // New creates a client and loads any saved tokens.
 func New(cfg config.Hive) (*Client, error) {
-	hc := &http.Client{Timeout: cfg.Timeout}
+	// Never follow redirects: requests carry tokens (in headers and in Cognito
+	// bodies), and a redirect could send them somewhere else.
+	hc := &http.Client{Timeout: cfg.Timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	auth, err := NewAuth(cfg, hc)
 	if err != nil {
 		return nil, err
@@ -151,8 +169,11 @@ func (c *Client) Do(ctx context.Context, method, path string, body, out any) err
 		if err != nil {
 			return fmt.Errorf("%s %s: could not reach the Hive API: %w", method, path, err)
 		}
-		data, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+		data, err := readBody(resp.Body)
 		resp.Body.Close()
+		if err != nil {
+			return fmt.Errorf("%s %s: could not read Hive's answer: %w", method, path, err)
+		}
 		if resp.StatusCode/100 == 2 {
 			if out == nil || len(bytes.TrimSpace(data)) == 0 {
 				return nil
@@ -166,14 +187,16 @@ func (c *Client) Do(ctx context.Context, method, path string, body, out any) err
 			}
 			return nil
 		}
-		if (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden) && !refreshed {
+		// Only 401 means the token was refused; a 403 is about the request, and
+		// refreshing (or logging in again) for it would only add login traffic.
+		if resp.StatusCode == http.StatusUnauthorized && !refreshed {
 			refreshed = true
 			if _, err := c.Auth.Refresh(ctx, token); err != nil {
 				return err
 			}
 			continue
 		}
-		if (resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable || resp.StatusCode == http.StatusBadGateway) && attempt < maxRetries {
+		if retryable(method, resp.StatusCode) && attempt < maxRetries {
 			delay := time.Duration(500<<attempt) * time.Millisecond
 			if s, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil && s > 0 {
 				delay = min(time.Duration(s)*time.Second, 10*time.Second)
@@ -190,6 +213,19 @@ func (c *Client) Do(ctx context.Context, method, path string, body, out any) err
 			Message: fmt.Sprintf("%s %s failed (HTTP %d): %s.%s", method, path, resp.StatusCode, errorMessage(resp.StatusCode, data), hint(resp.StatusCode)),
 		}
 	}
+}
+
+// retryable reports whether a failed request may be sent again. A 429 means
+// Hive didn't act on it, so any method can be retried; after a 502 or 503 a
+// POST may already have changed something, so only other methods are.
+func retryable(method string, status int) bool {
+	switch status {
+	case http.StatusTooManyRequests:
+		return true
+	case http.StatusServiceUnavailable, http.StatusBadGateway:
+		return method != http.MethodPost
+	}
+	return false
 }
 
 // errorMessage pulls a readable message out of an error body.
@@ -222,8 +258,10 @@ func errorMessage(status int, data []byte) string {
 
 func hint(status int) string {
 	switch status {
-	case http.StatusUnauthorized, http.StatusForbidden:
+	case http.StatusUnauthorized:
 		return " Hive rejected the login even after refreshing it. Check `hive-mcp status`, and run `hive-mcp login` again if needed."
+	case http.StatusForbidden:
+		return " Hive refused this request for this account; the device or feature may not belong to it."
 	case http.StatusNotFound:
 		return " The device may have been removed, or the ID is wrong; list devices again."
 	case http.StatusTooManyRequests:

@@ -2,10 +2,13 @@ package hive_test
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/mattoddie/hive-mcp/internal/config"
 	"github.com/mattoddie/hive-mcp/internal/hive"
 	"github.com/mattoddie/hive-mcp/internal/hive/hivetest"
 )
@@ -155,5 +158,68 @@ func TestBoostingSummary(t *testing.T) {
 	s := n.SummarizeHeating(n.Products("heating")[0], time.Now())
 	if s["mode"] != "boost" || s["boost_minutes_left"] != 25.0 || s["mode_after_boost"] != "schedule" || s["schedule_now"] == nil {
 		t.Errorf("boost: %v", s)
+	}
+}
+
+func TestOnly401RefreshesTheLogin(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	c := loggedIn(t, m)
+	before := countCalls(m, "InitiateAuth")
+	m.On("GET", "/forbidden", func(hivetest.Request, []string) (int, any) { return 403, map[string]string{"error": "FORBIDDEN"} })
+	if err := c.Get(ctx, "/forbidden", nil); err == nil || !strings.Contains(err.Error(), "HTTP 403") {
+		t.Errorf("403: %v", err)
+	}
+	if n := countCalls(m, "InitiateAuth"); n != before {
+		t.Errorf("a 403 refreshed the login: %v", m.Cognito)
+	}
+	if n := m.Count("GET", "/forbidden"); n != 1 {
+		t.Errorf("a 403 was retried %d times", n)
+	}
+}
+
+func TestPostIsNotRetriedAfterAServerError(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	c := loggedIn(t, m)
+	m.On("POST", "/flaky", func(hivetest.Request, []string) (int, any) { return 503, map[string]string{"error": "UNAVAILABLE"} })
+	if err := c.Post(ctx, "/flaky", hive.Obj{}, nil); err == nil || !strings.Contains(err.Error(), "HTTP 503") {
+		t.Errorf("503: %v", err)
+	}
+	if n := m.Count("POST", "/flaky"); n != 1 {
+		t.Errorf("a POST was sent %d times after a 503", n)
+	}
+	// A GET is retried.
+	calls := 0
+	m.On("GET", "/flaky", func(hivetest.Request, []string) (int, any) {
+		if calls++; calls == 1 {
+			return 503, nil
+		}
+		return 200, map[string]any{}
+	})
+	if err := c.Get(ctx, "/flaky", nil); err != nil || calls != 2 {
+		t.Errorf("GET after a 503: %v (%d calls)", err, calls)
+	}
+}
+
+func TestRedirectsAreNotFollowed(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	hit := false
+	elsewhere := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { hit = true }))
+	defer elsewhere.Close()
+	redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, elsewhere.URL+r.URL.Path, http.StatusTemporaryRedirect)
+	}))
+	defer redirect.Close()
+	c, file := newClient(t, m, func(h *config.Hive) { h.APIURL = redirect.URL })
+	if err := (hive.TokenStore{File: file}).Save(&hive.Tokens{IDToken: m.IDToken(), ExpiresAt: time.Now().Add(time.Hour).UnixMilli()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Get(ctx, "/nodes/all", nil); err == nil || !strings.Contains(err.Error(), "HTTP 307") {
+		t.Errorf("redirect: %v", err)
+	}
+	if hit {
+		t.Error("the redirect was followed, with the token")
 	}
 }

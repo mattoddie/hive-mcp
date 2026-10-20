@@ -80,7 +80,7 @@ docker run -it --rm --env-file .env -v hive-data:/data ghcr.io/mattoddie/hive-mc
 The `-it` matters: without it the command can't read the code you type.
 
 > [!TIP]
-> You can also log in from the chat: ask the assistant to *"log in to Hive"*. It calls `hive_auth_start`, Hive texts you, you tell the assistant the code, and it calls `hive_auth_complete`. That's handy for stdio setups such as Claude Desktop.
+> You can also log in from the chat. Set `HIVE_ALLOW_LOGIN_TOOLS=true`, restart, and ask the assistant to *"log in to Hive"*. It calls `hive_auth_start`, Hive texts you, you tell the assistant the code, and it calls `hive_auth_complete`. That's handy for stdio setups such as Claude Desktop.
 
 ## 3. Start the server
 

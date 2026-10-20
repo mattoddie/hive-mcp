@@ -8,22 +8,36 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mattoddie/hive-mcp/internal/config"
 	"github.com/mattoddie/hive-mcp/internal/hive"
 )
 
 // Hive's heating and TRV limits, as the Hive app and pyhiveapi apply them.
+// HIVE_MAX_TEMP (Context.MaxTemp) lowers the top end.
 const (
-	minTemp  = 5.0
-	maxTemp  = 32.0
+	minTemp  = config.MinTemp
 	tempStep = 0.5
 )
 
-var tempRange = [2]float64{minTemp, maxTemp}
+// maxTemp is the highest target the tools will set.
+func (c *Context) maxTemp() float64 {
+	if c.MaxTemp <= 0 {
+		return config.DefaultMaxTemp
+	}
+	return c.MaxTemp
+}
 
-// checkTemperature validates a target temperature: 5–32 °C in steps of 0.5.
-func checkTemperature(name string, t float64) error {
-	if math.IsNaN(t) || t < minTemp || t > maxTemp {
-		return fmt.Errorf("%s must be between %g and %g °C, got %g", name, minTemp, maxTemp, t)
+// tempRange is the schema range for temperature arguments.
+func (c *Context) tempRange() [2]float64 { return [2]float64{minTemp, c.maxTemp()} }
+
+// checkTemperature validates a target temperature: 5 °C to max in steps of 0.5.
+func checkTemperature(name string, t, max float64) error {
+	if math.IsNaN(t) || t < minTemp || t > max {
+		hint := ""
+		if t > max && t <= config.HiveMaxTemp {
+			hint = " (the limit set by HIVE_MAX_TEMP)"
+		}
+		return fmt.Errorf("%s must be between %g and %g °C%s, got %g", name, minTemp, max, hint, t)
 	}
 	if r := t / tempStep; math.Abs(r-math.Round(r)) > 1e-9 {
 		return fmt.Errorf("%s must be in steps of %g °C (for example 20 or 20.5), got %g", name, tempStep, t)
@@ -113,6 +127,20 @@ func change(ctx context.Context, cl *hive.Client, p Obj, body Obj, summarize fun
 }
 
 var errNoChange = errors.New("nothing to change: give at least one setting")
+
+// confirmArgs is the explicit opt-in for settings that last until something
+// changes them: manual heating and hot water "on".
+type confirmArgs struct {
+	Confirm bool `json:"confirm,omitempty" jsonschema:"Must be true for heating mode manual or hot water mode on, which last indefinitely (until something changes them). Only set it once the user has agreed to an open-ended change; for a temporary one, boost instead"`
+}
+
+// needConfirm refuses an indefinite setting unless the call confirmed it.
+func needConfirm(confirmed bool, what, boostTool string) error {
+	if confirmed {
+		return nil
+	}
+	return fmt.Errorf("%s lasts indefinitely, until someone changes it. For a temporary change use %s. If the user really wants it left on, call again with confirm: true", what, boostTool)
+}
 
 type rawArgs struct {
 	Raw bool `json:"raw,omitempty" jsonschema:"Return Hive's full objects instead of compact summaries (much larger)"`

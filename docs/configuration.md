@@ -37,7 +37,7 @@ You do step 1. Everything else is automatic. There are two ways to do step 1:
 | Method | How | Good for |
 |---|---|---|
 | `hive-mcp login` in a terminal | `docker compose run --rm hive-mcp login`, or `docker run -it --rm --env-file .env -v hive-data:/data ghcr.io/mattoddie/hive-mcp:latest login`, or `hive-mcp login` with the binary. It asks for the code. | The compose setup and most others. |
-| From the assistant | Ask it to *"log in to Hive"*. It calls `hive_auth_start` (Hive texts you), you tell it the code, and it calls `hive_auth_complete`. | Logging in without a terminal, for example with Claude Desktop in stdio mode. |
+| From the assistant | Set `HIVE_ALLOW_LOGIN_TOOLS=true` and restart, then ask it to *"log in to Hive"*. It calls `hive_auth_start` (Hive texts you), you tell it the code, and it calls `hive_auth_complete`. | Logging in without a terminal, for example with Claude Desktop in stdio mode. |
 
 Running `login` again later doesn't send a code if the server is still a remembered device. It just logs in afresh.
 
@@ -48,18 +48,21 @@ Running `login` again later doesn't send a code if the server is still a remembe
 
 - It **never triggers an SMS code by itself**. If it would need one (for example, because the remembered device was removed from your account), it stops and tools tell you to run `hive-mcp login` again.
 - After a failed automatic login it **waits five minutes** before trying again, so a wrong password can't lock your account through repeated attempts.
+- The login tools (`HIVE_ALLOW_LOGIN_TOOLS`) won't ask Hive for another SMS code within a minute of the last one, or try again within five minutes of a login Hive refused, however often the assistant calls them. Five wrong codes end a pending login.
 - Without `HIVE_PASSWORD`, the server works until the refresh token runs out, then needs a new `hive-mcp login`.
 
 ### Logging out
 
-`hive-mcp logout` asks Hive to forget this server's remembered device (if the login is still valid) and deletes the token file. If you change your Hive password, update `HIVE_PASSWORD` too, or the server can't log in again by itself. If it then asks for a new login, run `hive-mcp login` again.
+`hive-mcp logout` asks Hive to forget this server's remembered device and to revoke its refresh token (renewing an expired login first so it can), then deletes the token file. A running server notices the file has gone and drops the login it holds in memory too, so it can't log itself back in or write the file again. If you change your Hive password, update `HIVE_PASSWORD` too, or the server can't log in again by itself. If it then asks for a new login, run `hive-mcp login` again.
 
 ## What the assistant may do
 
 | Variable | Default | Description |
 |---|---|---|
 | `HIVE_ALLOW_WRITES` | `false` | Register tools that change things: heating temperature and mode, boosts, hot water, holiday mode, plugs and lights, and non-GET requests in the raw API tool. |
-| `HIVE_TOOLSETS` | `all` | Comma-separated list of [toolsets](#choosing-toolsets) to expose. |
+| `HIVE_ALLOW_LOGIN_TOOLS` | `false` | Register `hive_auth_start` and `hive_auth_complete`, so the assistant can log in for you. They log in with `HIVE_PASSWORD` and can make Hive text an SMS code, so they're off unless you ask for them. `hive_auth_status` is always available. |
+| `HIVE_MAX_TEMP` | `25` | The highest heating target, in °C, that any tool will set: temperature, manual mode, boosts and holiday mode. 5 to 32 in steps of 0.5 (Hive itself allows up to 32). |
+| `HIVE_TOOLSETS` | `all` | Comma-separated list of [toolsets](#choosing-toolsets) to expose. `all` means every toolset except `raw`, which has to be named, for example `all,raw`. |
 
 Boolean variables accept `true`/`false`, `1`/`0`, `yes`/`no` and `on`/`off`. Anything else stops the server with an error.
 
@@ -69,8 +72,9 @@ The [tool reference](tools.md) labels every tool with the setting it needs:
 |---|---|
 | 🟢 read | Always |
 | 🟠 write | `HIVE_ALLOW_WRITES=true` |
+| 🔵 login | `HIVE_ALLOW_LOGIN_TOOLS=true` |
 
-Tools that aren't allowed are **not registered at all**. The assistant can't see them, so it can't call them or be talked into calling them. After changing `HIVE_ALLOW_WRITES`, restart the server and reconnect your MCP client so it fetches the new tool list.
+Tools that aren't allowed are **not registered at all**. The assistant can't see them, so it can't call them or be talked into calling them. After changing `HIVE_ALLOW_WRITES` or `HIVE_ALLOW_LOGIN_TOOLS`, restart the server and reconnect your MCP client so it fetches the new tool list.
 
 Unlike an OAuth service, Hive's login has no read-only scope: whatever the switch says, the login itself can do anything the Hive app can. The switch is what keeps the assistant read-only. See [Security](security.md).
 
@@ -81,7 +85,7 @@ Unlike an OAuth service, Hive's login has no read-only scope: whatever the switc
 | `HIVE_CACHE_SECONDS` | `30` | How long a reading of the whole home is reused before asking Hive again. A conversation often makes several calls in a row, and this keeps them to one request. Every change clears the cache, and tools take `fresh: true` to skip it. `0` turns the cache off. |
 | `HIVE_TIMEOUT_MS` | `30000` | Timeout for each request to Hive, in milliseconds. |
 
-hive-mcp also retries a few times, with increasing waits, when Hive answers `429 Too Many Requests` or `503`.
+hive-mcp also retries a few times, with increasing waits, when Hive answers `429 Too Many Requests`, and for reads also `502` or `503`. A change (a `POST`) is never repeated after a `502` or `503`, since Hive may already have made it. Only a `401` makes it refresh the login. It never follows redirects, and refuses responses larger than 64 MiB.
 
 ## MCP transport
 
@@ -90,15 +94,15 @@ hive-mcp also retries a few times, with increasing waits, when Hive answers `429
 | `MCP_TRANSPORT` | `http` in the Docker image (`stdio` for the binary) | `http` for Streamable HTTP, or `stdio`. |
 | `MCP_HTTP_HOST` | `127.0.0.1` (`0.0.0.0` in the Docker image) | Address to listen on (HTTP only). |
 | `MCP_HTTP_PORT` | `8080` | Port to listen on (HTTP only). |
-| `MCP_AUTH_TOKEN` | (required for http) | Every request to `/mcp` must send `Authorization: Bearer <token>`. The server refuses to start in http mode without it. Generate one with `openssl rand -hex 32`. |
-| `MCP_ALLOW_UNAUTHENTICATED` | `false` | Start the http transport without `MCP_AUTH_TOKEN`. Only for a server that sits behind something else that authenticates every request. |
-| `MCP_ALLOWED_HOSTS` | | Comma-separated allow-list of `Host` header values, such as `hive-mcp.lan,hive-mcp.lan:8080`. Requests with any other `Host` are rejected, which protects against DNS-rebinding attacks from web pages in your browser. |
+| `MCP_AUTH_TOKEN` | (required for http) | Every request to `/mcp` must send `Authorization: Bearer <token>`. The server refuses to start in http mode without it, or if it's shorter than 16 characters. Generate one with `openssl rand -hex 32`. |
+| `MCP_ALLOW_UNAUTHENTICATED` | `false` | Start the http transport without `MCP_AUTH_TOKEN`. Only for a server that sits behind something else that authenticates every request. It also needs `MCP_ALLOWED_HOSTS`, and the server logs a warning at startup. |
+| `MCP_ALLOWED_HOSTS` | | Comma-separated allow-list of `host` or `host:port` entries, such as `hive-mcp.lan,hive-mcp.lan:8080`. Requests whose `Host` header isn't listed are rejected (an entry without a port matches any port), and so are requests from browser pages whose `Origin` isn't listed (an entry without a port matches only the default port, 80 or 443; list `host:port` for a page on another port). `Origin: null` or an empty `Origin` is always rejected. This protects against DNS-rebinding and cross-site attacks from web pages in your browser. |
 
 The HTTP server exposes these endpoints:
 
 | Path | Method | Purpose |
 |---|---|---|
-| `/mcp` | `POST` | The MCP endpoint (stateless Streamable HTTP, JSON responses). Request bodies are limited to 1 MiB. |
+| `/mcp` | `POST` | The MCP endpoint (stateless Streamable HTTP, JSON responses). Other methods get `405`. Bodies must be JSON and at most 1 MiB. |
 | `/health`, `/healthz` | `GET` | Liveness check. Returns `{"status":"ok"}` and doesn't contact Hive. |
 
 ## Docker secrets (`_FILE` variables)
@@ -139,7 +143,7 @@ Every tool's name, description and argument schema is sent to the model, which u
 | `heating` | Heating zones and radiator valves |
 | `hotwater` | Hot water |
 | `devices` | Smart plugs, lights and sensors |
-| `raw` | Any API path. Handy, but gives broad access. |
+| `raw` | Any API path. Handy, but gives broad access, so it isn't part of `all`: list it by name to enable it. The account's user profile (name, email, phone, address) is redacted from its output. |
 
 The [tool reference](tools.md) lists the tools in each toolset. Some suggested sets:
 
@@ -147,11 +151,12 @@ The [tool reference](tools.md) lists the tools in each toolset. Some suggested s
 |---|---|
 | Heating and hot water only | `home,heating,hotwater` |
 | Lights and plugs only | `home,devices` |
-| Everything (default) | `all` |
+| Everything except the raw API tool (default) | `all` |
+| Everything, including the raw API tool | `all,raw` |
 
 ## Advanced: Hive's endpoints
 
-You shouldn't need these. They exist in case Hive moves something before hive-mcp catches up.
+You shouldn't need these. They exist in case Hive moves something before hive-mcp catches up. They must be `https://` URLs (plain `http://` is only accepted for `localhost` or a loopback address, such as a local mock) and can't contain a username or password.
 
 | Variable | Default | Description |
 |---|---|---|

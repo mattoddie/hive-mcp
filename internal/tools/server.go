@@ -1,6 +1,8 @@
 package tools
 
 import (
+	"fmt"
+
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/mattoddie/hive-mcp/internal/config"
@@ -15,10 +17,16 @@ var Version = "0.0.0-dev"
 
 func instructions(opts config.Tools) string {
 	s := "Tools for Hive (British Gas's smart heating, unofficial): heating zones (Hive thermostats), radiator valves (TRVs), hot water, holiday mode, smart plugs, lights and sensors in the user's home. " +
-		"Start with hive_get_overview for a snapshot. If a tool says the server isn't logged in, tell the user to run `hive-mcp login`, or use hive_auth_start and hive_auth_complete (which texts them a code). " +
-		"Temperatures are in °C; heating targets go from 5 to 32 in steps of 0.5. Times are in the home's local time. Readings can be up to HIVE_CACHE_SECONDS old; pass fresh: true when it matters. "
+		"Start with hive_get_overview for a snapshot. "
+	if opts.AllowLoginTools {
+		s += "If a tool says the server isn't logged in, tell the user to run `hive-mcp login`, or, if they ask you to, use hive_auth_start and hive_auth_complete (which texts them a code). "
+	} else {
+		s += "If a tool says the server isn't logged in, tell the user to run `hive-mcp login`. "
+	}
+	s += fmt.Sprintf("Temperatures are in °C; heating targets go from 5 to %g in steps of 0.5 (HIVE_MAX_TEMP). ", (&Context{Tools: opts}).maxTemp())
+	s += "Holiday mode lasts at most 60 days. Times are in the home's local time. Readings can be up to HIVE_CACHE_SECONDS old; pass fresh: true when it matters. "
 	if opts.AllowWrites {
-		s += "Write tools are enabled and act on a real home: confirm changes with the user (which zone, temperature, mode and for how long) before making them, prefer a boost over manual mode for a temporary change, and never turn heating off or set holiday mode without being asked."
+		s += "Write tools are enabled and act on a real home: confirm changes with the user (which zone, temperature, mode and for how long) before making them, prefer a boost over manual mode or hot water on for a temporary change (manual and on last indefinitely and need confirm: true, which you should only pass once the user has agreed), and never turn heating off or set holiday mode without being asked."
 	} else {
 		s += "The server is read-only; tools that change the heating, hot water or devices are disabled (HIVE_ALLOW_WRITES=false)."
 	}

@@ -127,7 +127,7 @@ The input struct **is** the tool's argument schema:
 |---|---|
 | `Toolset` | Required. The tool is only registered when this toolset is enabled. |
 | `Name`, `Title`, `Description` | The tool's name (`hive_<verb>_<thing>`), a short human title, and the description the model reads. |
-| `Gate` | `Read` (the default, always registered) or `Write` (needs `HIVE_ALLOW_WRITES`). |
+| `Gate` | `Read` (the default, always registered), `Write` (needs `HIVE_ALLOW_WRITES`) or `Login` (needs `HIVE_ALLOW_LOGIN_TOOLS`; only for tools that log in with the password). |
 | `ReadOnly` | Overrides the `readOnlyHint` annotation, which defaults to `Gate == Read`. |
 | `Destructive` | Sets the `destructiveHint` annotation for tools that aren't read-only. |
 | `Idempotent` | Repeating the call with the same arguments has no further effect. Sets `idempotentHint`. |
@@ -142,7 +142,8 @@ The input struct **is** the tool's argument schema:
 | `c.nodes(ctx, fresh)` | The whole home, from the cache unless `fresh`. |
 | `n.Products(types...)`, `n.Devices(types...)`, `n.Device(id)` | Picking products (what you control) and devices (the hardware) out of a `hive.Nodes`. |
 | `find(list, ref, what)` | Resolve a name or ID, with errors that list the choices. |
-| `checkTemperature()` | 5–32 °C in steps of 0.5. |
+| `checkTemperature()` | 5 °C to a maximum (pass `c.maxTemp()`, from `HIVE_MAX_TEMP`) in steps of 0.5. Use `c.tempRange()` for the schema range. |
+| `needConfirm()` | Refuses a setting that lasts indefinitely unless the call passed `confirm: true` (embed `confirmArgs`). |
 | `parseWhen()` | Dates and times in the home's time zone. |
 | `change()` | Send a state change and return what was sent and the new state. |
 | `n.Summarize*()`, `n.ScheduleNow()`, `hive.FormatSchedule()` | Compact summaries and readable schedules. |

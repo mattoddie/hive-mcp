@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mattoddie/hive-mcp/internal/hive"
@@ -23,34 +24,39 @@ type listDevicesArgs struct {
 
 type setHolidayArgs struct {
 	Start       string  `json:"start,omitempty" jsonschema:"When holiday mode starts, as YYYY-MM-DD or YYYY-MM-DDTHH:MM in the home's local time (default now)"`
-	End         string  `json:"end" jsonschema:"When it ends and the normal schedule resumes, as YYYY-MM-DD or YYYY-MM-DDTHH:MM in the home's local time"`
-	Temperature float64 `json:"temperature" jsonschema:"Temperature to keep the home at while away, in °C (5 to 32 in steps of 0.5; frost protection is usually 7)"`
+	End         string  `json:"end" jsonschema:"When it ends and the normal schedule resumes, as YYYY-MM-DD or YYYY-MM-DDTHH:MM in the home's local time; at most 60 days after the start"`
+	Temperature float64 `json:"temperature" jsonschema:"Temperature to keep the home at while away, in °C (from 5 in steps of 0.5, up to HIVE_MAX_TEMP; frost protection is usually 7)"`
 }
 
 func (c *Context) nodes(ctx context.Context, fresh bool) (*hive.Nodes, error) {
 	return c.Client.Nodes(ctx, fresh)
 }
 
+// maxHoliday caps holiday mode, so a mistaken end date can't leave the heating
+// at one temperature for months.
+const maxHoliday = 60 * 24 * time.Hour
+
 func registerHome(c *Context) {
 	cl := c.Client
 
 	add(c, Def{
 		Toolset: "home", Name: "hive_auth_status", Title: "Hive login status",
-		Description: "Show whether this server is logged in to Hive: the account, whether this server is a remembered device (so it can log in again without an SMS code), when the current token expires and any login error. Never shows passwords, tokens or device secrets.",
+		Description: "Show whether this server is logged in to Hive: the account (with the email address masked), whether this server is a remembered device (so it can log in again without an SMS code), when the current token expires and any login error. Never shows passwords, tokens or device secrets.",
 	}, func(ctx context.Context, _ NoArgs) (any, error) {
-		return cl.Auth.Status(), nil
+		return authStatus(cl.Auth.Status()), nil
 	})
 
 	add(c, Def{
 		Toolset: "home", Name: "hive_auth_start", Title: "Start Hive login",
 		Description: "Start logging this server in to Hive with HIVE_USERNAME and HIVE_PASSWORD. If this server is already a remembered device, that's the whole login. Otherwise Hive texts a code to the account's phone: ask the user for it and pass it to hive_auth_complete within about three minutes. " +
-			"Only use this when the user asks to log in or a tool says the server isn't logged in; it sends a real text message.",
-		ReadOnly: boolPtr(false), OpenWorld: true,
+			"Only use this when the user asks to log in or a tool says the server isn't logged in; it sends a real text message. It refuses to send another code within a minute of the last one, and to try again within five minutes of a login Hive refused.",
+		Gate: Login, ReadOnly: boolPtr(false), OpenWorld: true,
 	}, func(ctx context.Context, _ NoArgs) (any, error) {
 		res, err := cl.Auth.StartLogin(ctx)
 		if err != nil {
 			return nil, err
 		}
+		res = maskLogin(res)
 		out := Obj{"result": res}
 		if res.CodeRequired {
 			out["next_step"] = fmt.Sprintf("Hive has sent a code by text message to %s. Ask the user for it and call hive_auth_complete with it within about three minutes.", res.CodeSentTo)
@@ -61,9 +67,10 @@ func registerHome(c *Context) {
 	add(c, Def{
 		Toolset: "home", Name: "hive_auth_complete", Title: "Finish Hive login",
 		Description: "Finish a login started with hive_auth_start by giving the code Hive texted to the account's phone. This also registers the server as a remembered device, so it won't need a code again.",
-		ReadOnly:    boolPtr(false),
+		Gate:        Login, ReadOnly: boolPtr(false),
 	}, func(ctx context.Context, a authCompleteArgs) (any, error) {
-		return cl.Auth.CompleteLogin(ctx, a.Code)
+		res, err := cl.Auth.CompleteLogin(ctx, a.Code)
+		return maskLogin(res), err
 	})
 
 	add(c, Def{
@@ -134,7 +141,7 @@ func registerHome(c *Context) {
 				s["discontinued"] = note
 			}
 			if a.Raw {
-				out = append(out, d)
+				out = append(out, redactObj(d))
 			} else {
 				out = append(out, s)
 			}
@@ -165,10 +172,10 @@ func registerHome(c *Context) {
 
 	add(c, Def{
 		Toolset: "home", Name: "hive_set_holiday_mode", Title: "Set holiday mode",
-		Description: "Set holiday mode: from start (default now) until end, the heating holds one temperature, then the normal settings resume. Replaces any holiday mode already set. Confirm the dates and temperature with the user first.",
-		Gate:        Write, Idempotent: true, Ranges: map[string][2]float64{"temperature": tempRange},
+		Description: "Set holiday mode: from start (default now) until end, the heating holds one temperature, then the normal settings resume. It lasts at most 60 days. Replaces any holiday mode already set. Confirm the dates and temperature with the user first.",
+		Gate:        Write, Idempotent: true, Ranges: map[string][2]float64{"temperature": c.tempRange()},
 	}, func(ctx context.Context, a setHolidayArgs) (any, error) {
-		if err := checkTemperature("temperature", a.Temperature); err != nil {
+		if err := checkTemperature("temperature", a.Temperature, c.maxTemp()); err != nil {
 			return nil, err
 		}
 		n, err := c.nodes(ctx, false)
@@ -188,6 +195,9 @@ func registerHome(c *Context) {
 		}
 		if !end.After(start) || !end.After(time.Now()) {
 			return nil, errors.New("end must be after start and in the future")
+		}
+		if end.Sub(start) > maxHoliday {
+			return nil, fmt.Errorf("holiday mode can last at most %d days; end must be by %s", int(maxHoliday.Hours()/24), start.Add(maxHoliday).In(loc).Format("2006-01-02T15:04"))
 		}
 		body := Obj{"start": start.UnixMilli(), "end": end.UnixMilli(), "temperature": a.Temperature}
 		if err := cl.Post(ctx, "/holiday-mode", body, nil); err != nil {
@@ -243,4 +253,37 @@ func attention(n *hive.Nodes) []string {
 		}
 	}
 	return out
+}
+
+// maskEmail keeps enough of the account's email address to recognise it
+// ("s***@example.com") without sending the whole address to the model.
+func maskEmail(s string) string {
+	local, domain, ok := strings.Cut(s, "@")
+	if !ok || local == "" {
+		if s == "" {
+			return ""
+		}
+		return "***"
+	}
+	return local[:1] + "***@" + domain
+}
+
+// authStatus is Auth.Status for the model: the email address masked, and
+// no path to the token file.
+func authStatus(st map[string]any) map[string]any {
+	if u, ok := st["username"].(string); ok {
+		st["username"] = maskEmail(u)
+	}
+	delete(st, "token_file")
+	return st
+}
+
+// maskLogin is a login result for the model.
+func maskLogin(res *hive.LoginResult) *hive.LoginResult {
+	if res == nil {
+		return nil
+	}
+	r := *res
+	r.Username, r.TokenFile = maskEmail(r.Username), ""
+	return &r
 }

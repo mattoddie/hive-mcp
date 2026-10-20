@@ -103,17 +103,18 @@ A heating zone (a Hive thermostat) or TRV zone (Hive radiator valves) has one of
 
 - `hive_set_heating_temperature` sets the target; pass `mode: manual` to hold it.
 - `hive_set_heating_mode` switches mode, with an optional temperature for manual.
+- Manual mode lasts until something changes it, so switching to it, or changing the target of a zone that's already in manual, needs `confirm: true`. The model is told to pass it only once you've agreed.
 - `hive_boost_heating` starts a boost (default 60 minutes); `hive_cancel_heating_boost` ends it early and restores the previous mode, and for manual or off, the previous temperature.
 
-Temperatures are 5 to 32 °C in steps of 0.5. Anything else is refused before it reaches Hive. For a temporary change, prefer a boost: it can't be forgotten.
+Temperatures are 5 °C up to `HIVE_MAX_TEMP` (25 °C unless you change it; Hive itself allows up to 32), in steps of 0.5, for every mode, boost and holiday mode. Anything else is refused before it reaches Hive. For a temporary change, prefer a boost: it can't be forgotten.
 
 ### Hot water
 
-The hot water is `on` (stays on), `off`, on its `schedule`, or boosting for a set time. `hive_set_hot_water_mode` switches between the first three, and `hive_boost_hot_water` and `hive_cancel_hot_water_boost` handle boosts.
+The hot water is `on` (stays on), `off`, on its `schedule`, or boosting for a set time. `hive_set_hot_water_mode` switches between the first three, and `hive_boost_hot_water` and `hive_cancel_hot_water_boost` handle boosts. Like manual heating, `on` needs `confirm: true`.
 
 ### Holiday mode
 
-`hive_set_holiday_mode` holds the heating at one temperature from a start time (default now) to an end time, given as `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM` in your home's local time. `hive_cancel_holiday_mode` ends it straight away.
+`hive_set_holiday_mode` holds the heating at one temperature from a start time (default now) to an end time, given as `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM` in your home's local time. It can last at most 60 days. `hive_cancel_holiday_mode` ends it straight away.
 
 ### Plugs and lights
 
@@ -131,7 +132,7 @@ Hive itself only hears from devices every so often, so even a fresh reading can 
 
 ## The raw API tool
 
-`hive_api_request` (toolset `raw`) calls any path of Hive's API, such as `/nodes/all`, `/devices` or `/actions`. It's a fallback for things the other tools don't cover. Without `HIVE_ALLOW_WRITES` it only allows `GET`. With writes on it allows `POST`, `PUT` and `DELETE` too, with **no validation**, so it's marked destructive. Leave `raw` out of `HIVE_TOOLSETS` if you want the assistant limited to the curated tools.
+`hive_api_request` (toolset `raw`) calls any path of Hive's API, such as `/nodes/all`, `/devices` or `/actions`. It's a fallback for things the other tools don't cover. Without `HIVE_ALLOW_WRITES` it only allows `GET`. With writes on it allows `POST`, `PUT` and `DELETE` too, with **no validation**, so it's marked destructive. It isn't part of `HIVE_TOOLSETS=all` (the default): add it by name, for example `all,raw`. The account's user profile (name, email, phone, address) is redacted from what it returns.
 
 ## Tips for good results
 

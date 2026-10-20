@@ -34,7 +34,7 @@ Run `docker compose logs hive-mcp`. The last line names the problem, for example
 2. **Right host?** The port is published on the machine running Docker. If Docker runs on another machine (for example with `DOCKER_HOST`), `localhost` won't work.
 3. **Right path?** The endpoint is `/mcp`, so the URL is `http://<docker-host>:8080/mcp`.
 4. **`401 Unauthorized`:** the client isn't sending `Authorization: Bearer <MCP_AUTH_TOKEN>`, or the token doesn't match. Watch for stray quotes or spaces in `.env`.
-5. **`403 Host … is not allowed`:** add the hostname the client uses to `MCP_ALLOWED_HOSTS`, or unset it.
+5. **`403 Host … is not allowed`:** add the hostname the client uses to `MCP_ALLOWED_HOSTS`, or unset it. **`403 Origin … is not allowed`** means a browser-based client sent an `Origin` that isn't listed: add its `host` (or `host:port` if it isn't on port 80 or 443).
 6. **The client expects SSE:** the server is stateless and answers `POST` requests with JSON. Make sure the client is set to *Streamable HTTP* (often called `http`), not `sse`.
 7. **stdio clients show nothing:** check that the command has `-i` and not `-t`, and that `MCP_TRANSPORT=stdio` is set when using the image, which defaults to HTTP.
 
@@ -114,9 +114,17 @@ The server is working from memory because it can't write the token file. With th
 
 ## Errors when changing things
 
-**`… must be between 5 and 32 °C` or `… must be in steps of 0.5 °C`**
+**`… must be between 5 and 25 °C` or `… must be in steps of 0.5 °C`**
 
-Hive heating targets are 5 to 32 °C, in steps of 0.5. Round the temperature.
+hive-mcp sets heating targets from 5 °C up to `HIVE_MAX_TEMP` (25 °C by default; Hive allows up to 32), in steps of 0.5. Round the temperature, or raise `HIVE_MAX_TEMP` if you really need a higher target.
+
+**`… lasts indefinitely, until someone changes it`**
+
+Manual heating and hot water `on` stay that way until something changes them, so the tools need `confirm: true`. Ask for a boost instead, or tell the assistant you do want it left on.
+
+**`holiday mode can last at most 60 days`**
+
+Pick an earlier end date, and set holiday mode again nearer the time if you're away longer.
 
 **`no heating zone called "…"; the choices are …`, or `… matches more than one …`**
 

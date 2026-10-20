@@ -4,6 +4,8 @@ package config
 import (
 	"errors"
 	"fmt"
+	"math"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -16,6 +18,9 @@ import (
 // Toolsets are groups of tools that can be switched on and off with HIVE_TOOLSETS.
 var Toolsets = []string{"home", "heating", "hotwater", "devices", "raw"}
 
+// OptInToolset isn't included in "all" (the default): it has to be listed by name.
+const OptInToolset = "raw"
+
 // Defaults. Hive's sign-in page (DefaultSSOURL) names the AWS Cognito user
 // pool and app client its website logs in with, and hive-mcp reads them from
 // there at login, as pyhiveapi and Home Assistant do. HIVE_COGNITO_POOL_ID
@@ -24,6 +29,17 @@ const (
 	DefaultAPIURL = "https://beekeeper.hivehome.com/1.0"
 	DefaultSSOURL = "https://sso.hivehome.com"
 )
+
+// Heating target limits. Hive accepts 5 to 32 °C in steps of 0.5;
+// HIVE_MAX_TEMP lowers the top of that range, by default to DefaultMaxTemp.
+const (
+	MinTemp        = 5.0
+	HiveMaxTemp    = 32.0
+	DefaultMaxTemp = 25.0
+)
+
+// MinAuthTokenLength is the shortest MCP_AUTH_TOKEN accepted.
+const MinAuthTokenLength = 16
 
 // Hive holds the Hive account and API settings.
 type Hive struct {
@@ -48,12 +64,18 @@ type Hive struct {
 // Tools controls which tools are registered.
 type Tools struct {
 	AllowWrites bool
-	Toolsets    map[string]bool
+	// AllowLoginTools registers hive_auth_start and hive_auth_complete, which
+	// log in with the password and can text an SMS code.
+	AllowLoginTools bool
+	// MaxTemp is the highest heating target (°C) the tools will set, for any
+	// mode, boost or holiday mode (HIVE_MAX_TEMP).
+	MaxTemp  float64
+	Toolsets map[string]bool
 }
 
 // AllTools enables every tool, for documentation and tests.
 func AllTools() Tools {
-	t := Tools{AllowWrites: true, Toolsets: map[string]bool{}}
+	t := Tools{AllowWrites: true, AllowLoginTools: true, MaxTemp: DefaultMaxTemp, Toolsets: map[string]bool{}}
 	for _, ts := range Toolsets {
 		t.Toolsets[ts] = true
 	}
@@ -66,6 +88,8 @@ type HTTP struct {
 	Port         int
 	AuthToken    string
 	AllowedHosts []string
+	// AllowUnauthenticated serves http without MCP_AUTH_TOKEN (MCP_ALLOW_UNAUTHENTICATED).
+	AllowUnauthenticated bool
 }
 
 // Config is the whole configuration.
@@ -132,15 +156,46 @@ func nonNegativeInt(name, v string, fallback int) (int, error) {
 	return n, nil
 }
 
+func maxTemp(v string) (float64, error) {
+	if v == "" {
+		return DefaultMaxTemp, nil
+	}
+	t, err := strconv.ParseFloat(strings.TrimSuffix(strings.TrimSpace(v), "°C"), 64)
+	if err != nil || math.IsNaN(t) || t < MinTemp || t > HiveMaxTemp || math.Mod(t*2, 1) != 0 {
+		return 0, fmt.Errorf("HIVE_MAX_TEMP must be a temperature in °C from %g to %g in steps of 0.5, got %q", MinTemp, HiveMaxTemp, v)
+	}
+	return t, nil
+}
+
+// checkURL validates one of Hive's endpoints. Requests to them carry the
+// password proof, tokens and device secrets, so they must use https://,
+// except to a loopback address (a local mock or proxy), and must not embed
+// credentials.
 func checkURL(name, v string) (string, error) {
 	u, err := url.Parse(v)
 	if err != nil || u.Host == "" {
-		return "", fmt.Errorf("%s is not a valid URL: %s", name, v)
+		return "", fmt.Errorf("%s is not a valid URL", name)
 	}
-	if u.Scheme != "https" && u.Scheme != "http" {
-		return "", fmt.Errorf("%s must use https:// (or http://), got %s", name, v)
+	if u.User != nil {
+		return "", fmt.Errorf("%s must not contain a username or password (user:pass@), got %s", name, u.Redacted())
+	}
+	switch {
+	case u.Scheme == "https":
+	case u.Scheme == "http" && isLoopback(u.Hostname()):
+	case u.Scheme == "http":
+		return "", fmt.Errorf("%s must use https:// (plain http:// is only allowed to localhost), got %s", name, v)
+	default:
+		return "", fmt.Errorf("%s must use https://, got %s", name, v)
 	}
 	return strings.TrimRight(v, "/"), nil
+}
+
+func isLoopback(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 var poolIDRe = regexp.MustCompile(`^([a-z]{2}(?:-[a-z]+)+-\d)_[A-Za-z0-9]+$`)
@@ -192,19 +247,29 @@ func Load(env Env) (*Config, error) {
 	if t.AllowWrites, err = boolValue("HIVE_ALLOW_WRITES", get("HIVE_ALLOW_WRITES"), false); err != nil {
 		return nil, err
 	}
+	if t.AllowLoginTools, err = boolValue("HIVE_ALLOW_LOGIN_TOOLS", get("HIVE_ALLOW_LOGIN_TOOLS"), false); err != nil {
+		return nil, err
+	}
+	if t.MaxTemp, err = maxTemp(get("HIVE_MAX_TEMP")); err != nil {
+		return nil, err
+	}
 	t.Toolsets = map[string]bool{}
 	for _, name := range strings.Split(or(get("HIVE_TOOLSETS"), "all"), ",") {
 		name = strings.ToLower(strings.TrimSpace(name))
 		switch {
 		case name == "":
 		case name == "all":
+			// Every toolset except raw, which reaches any API path (including the
+			// account's profile) and has to be named to be enabled.
 			for _, ts := range Toolsets {
-				t.Toolsets[ts] = true
+				if ts != OptInToolset {
+					t.Toolsets[ts] = true
+				}
 			}
 		case contains(Toolsets, name):
 			t.Toolsets[name] = true
 		default:
-			return nil, fmt.Errorf("unknown toolset %q in HIVE_TOOLSETS; valid: all, %s", name, strings.Join(Toolsets, ", "))
+			return nil, fmt.Errorf("unknown toolset %q in HIVE_TOOLSETS; valid: all (every toolset but raw), %s", name, strings.Join(Toolsets, ", "))
 		}
 	}
 
@@ -254,13 +319,22 @@ func Load(env Env) (*Config, error) {
 			hs.AllowedHosts = append(hs.AllowedHosts, strings.ToLower(host))
 		}
 	}
-	unauth, err := boolValue("MCP_ALLOW_UNAUTHENTICATED", get("MCP_ALLOW_UNAUTHENTICATED"), false)
-	if err != nil {
+	if hs.AllowUnauthenticated, err = boolValue("MCP_ALLOW_UNAUTHENTICATED", get("MCP_ALLOW_UNAUTHENTICATED"), false); err != nil {
 		return nil, err
 	}
-	// An HTTP server without a token would hand every enabled tool to anyone who can reach the port.
-	if cfg.Transport == "http" && hs.AuthToken == "" && !unauth {
-		return nil, errors.New("MCP_AUTH_TOKEN is required for the http transport (generate one with: openssl rand -hex 32); set MCP_ALLOW_UNAUTHENTICATED=true only behind something else that authenticates")
+	if hs.AuthToken != "" && len(hs.AuthToken) < MinAuthTokenLength {
+		return nil, fmt.Errorf("MCP_AUTH_TOKEN must be at least %d characters (generate one with: openssl rand -hex 32)", MinAuthTokenLength)
+	}
+	if cfg.Transport == "http" && hs.AuthToken == "" {
+		// An HTTP server without a token would hand every enabled tool to anyone who can reach the port.
+		if !hs.AllowUnauthenticated {
+			return nil, errors.New("MCP_AUTH_TOKEN is required for the http transport (generate one with: openssl rand -hex 32); set MCP_ALLOW_UNAUTHENTICATED=true only behind something else that authenticates")
+		}
+		// Without a token, the Host and Origin checks are all that stop a web page
+		// the user visits from reaching the server through DNS rebinding.
+		if len(hs.AllowedHosts) == 0 {
+			return nil, errors.New("MCP_ALLOW_UNAUTHENTICATED=true needs MCP_ALLOWED_HOSTS: without a token, the Host and Origin allow-list is what stops web pages in your browser reaching the server through DNS rebinding. Set it to the hostname(s) clients use, such as hive-mcp.lan")
+		}
 	}
 	return cfg, firstErr
 }

@@ -22,10 +22,11 @@ type Gate int
 const (
 	Read  Gate = iota // always registered
 	Write             // HIVE_ALLOW_WRITES
+	Login             // HIVE_ALLOW_LOGIN_TOOLS: logs in with the password and can text an SMS code
 )
 
 func (g Gate) String() string {
-	return [...]string{"read", "write"}[g]
+	return [...]string{"read", "write", "login"}[g]
 }
 
 // Context is shared by the tool definitions.
@@ -129,6 +130,9 @@ func add[In any](c *Context, d Def, h func(ctx context.Context, in In) (any, err
 		return
 	}
 	if d.Gate == Write && !c.AllowWrites {
+		return
+	}
+	if d.Gate == Login && !c.AllowLoginTools {
 		return
 	}
 	readOnly := d.Gate == Read

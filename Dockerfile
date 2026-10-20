@@ -2,7 +2,7 @@
 
 # The binary is static Go, so the build stage runs on the build machine's own
 # platform and cross-compiles: multi-arch builds don't need emulation.
-FROM --platform=$BUILDPLATFORM golang:1.26 AS build
+FROM --platform=$BUILDPLATFORM golang:1.27@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -16,19 +16,20 @@ ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
       -ldflags "-s -w -X github.com/mattoddie/hive-mcp/internal/tools.Version=${VERSION}" \
       -o /out/hive-mcp ./cmd/hive-mcp \
- && mkdir -p /out/data
+ && mkdir -p -m 0700 /out/data
 
 # Distroless: no shell, no package manager, just CA certificates, tzdata and a
 # non-root user (65532), so there is very little for CVE scanners to find.
-FROM gcr.io/distroless/static-debian13:nonroot
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:e2e927ec666bae08560abb3c55d0659eceabb657f56b6782ab500a9fc7f555e3
 LABEL org.opencontainers.image.title="hive-mcp" \
       org.opencontainers.image.description="Unofficial MCP server for Hive smart heating" \
       org.opencontainers.image.source="https://github.com/mattoddie/hive-mcp" \
       org.opencontainers.image.documentation="https://hive-mcp.mattoddie.dev/docs/" \
       org.opencontainers.image.licenses="MIT"
 COPY --from=build /out/hive-mcp /hive-mcp
-# The login lives here (tokens and the remembered device); mount a volume so it survives restarts.
-COPY --from=build --chown=65532:65532 /out/data /data
+# The login lives here (tokens and the remembered device): mode 0700, owned by
+# nonroot, which a new named volume copies. Mount a volume so it survives restarts.
+COPY --from=build --chown=65532:65532 --chmod=0700 /out/data /data
 ENV MCP_TRANSPORT=http \
     MCP_HTTP_HOST=0.0.0.0 \
     MCP_HTTP_PORT=8080 \

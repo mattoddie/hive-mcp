@@ -28,13 +28,13 @@ The best defence is to limit what's possible, not to rely on the model behaving.
 |---|---|---|
 | Write switch | `HIVE_ALLOW_WRITES` (off by default) | When off, no tools that change anything are registered and the raw API tool only allows `GET`. This is the main control: Hive's login has no read-only mode. |
 | Toolsets | `HIVE_TOOLSETS` | Tools outside the listed toolsets don't exist. The model can't see or call them. |
-| Validation | Built in | Heating targets must be 5–32 °C in steps of 0.5, boosts last at most six hours, brightness is 5–100% and colour temperatures stay within the bulb's range. Bad values are refused before anything reaches Hive. |
+| Validation | Built in | Heating targets must be 5 °C to `HIVE_MAX_TEMP` (default 25 °C) in steps of 0.5, boosts last at most six hours, holiday mode at most 60 days, manual heating and hot water `on` (which last indefinitely) need `confirm: true`, brightness is 5–100% and colour temperatures stay within the bulb's range. Bad values are refused before anything reaches Hive. |
 | Tool annotations | Built in | Each tool is marked read-only or not, so MCP clients can ask for your confirmation before changes. With writes on, the raw API tool is marked destructive. |
 | Server instructions | Built in | With writes on, the model is told to confirm changes with you, prefer boosts to manual mode for temporary changes, and never turn heating off or set holiday mode without being asked. This helps, but it isn't a security boundary. |
-| No secret output | Built in | No tool or log line includes the password, tokens or device secret. `hive_auth_status` and `hive-mcp status` describe the login without showing them. |
-| No surprise texts | Built in | The server never starts a login that would send an SMS code by itself, and it backs off for five minutes after a failed login, so it can't lock your account. |
-| Endpoint auth | `MCP_AUTH_TOKEN` | Bearer token required on every request, checked in constant time. The http transport refuses to start without one. |
-| Host allow-list | `MCP_ALLOWED_HOSTS` | Rejects requests with an unexpected `Host` header. This blocks DNS-rebinding attacks from browser pages. |
+| No secret output | Built in | No tool or log line includes the password, tokens or device secret. `hive_auth_status` and `hive-mcp status` describe the login without showing them. `hive_auth_status` masks the account's email address and leaves out the token file's path, and raw output (`raw: true` and the raw API tool) redacts the user profile. |
+| No surprise texts | Built in, and `HIVE_ALLOW_LOGIN_TOOLS` (off by default) | The server never starts a login that would send an SMS code by itself, and it backs off for five minutes after a failed login, so it can't lock your account. The tools that log in from the chat aren't registered unless you turn them on, and even then they won't ask for another code within a minute of the last one or retry within five minutes of a refused login. |
+| Endpoint auth | `MCP_AUTH_TOKEN` | Bearer token required on every request, checked in constant time. The http transport refuses to start without one, or with one shorter than 16 characters. `MCP_ALLOW_UNAUTHENTICATED=true` skips it, but only together with `MCP_ALLOWED_HOSTS`, and logs a warning. |
+| Host and Origin allow-list | `MCP_ALLOWED_HOSTS` | Rejects requests with an unexpected `Host` header, and browser requests whose `Origin` isn't listed (including `null`). This blocks DNS-rebinding and cross-site attacks from browser pages. |
 | Container | Built in | A distroless image with no shell, running as a non-root user. The default `compose.yaml` uses a read-only root filesystem, `cap_drop: [ALL]` and `no-new-privileges`. |
 
 ## The token file
@@ -45,10 +45,10 @@ The best defence is to limit what's possible, not to rely on the model behaving.
 - the remembered device's key, group key and **device password**: a random secret hive-mcp made up and registered with Hive's login service, which lets it skip the SMS code,
 - the account's username and the Cognito pool it belongs to.
 
-It's written atomically with mode `0600` in a directory with mode `0700`, owned by the container's non-root user.
+It's written atomically (a new temporary file, synced, then renamed) with mode `0600`. In the image, `/data` has mode `0700` and belongs to the container's non-root user, and a new named volume copies that. With a bind mount, set it up the same way (see [Deployment](deployment.md)).
 
 - Treat the file, the volume and any backups of it like a password. Don't commit it, copy it to other machines, or put it in a shared folder. `tokens.json` is in `.gitignore` and `.dockerignore`.
-- To log hive-mcp out, run `hive-mcp logout`. It asks Hive to forget the remembered device and deletes the file. Changing your Hive password means a copy of the file can't be used to log in again, though its current tokens may keep working until they expire.
+- To log hive-mcp out, run `hive-mcp logout`. It asks Hive to forget the remembered device and revoke the refresh token, then deletes the file. A running server treats a deleted token file as logged out. Changing your Hive password means a copy of the file can't be used to log in again, though its current tokens may keep working until they expire.
 - If you think the file has leaked, change your Hive password, update `HIVE_PASSWORD`, and log in again with `hive-mcp login`. Whether a password change also cancels existing tokens is up to Hive and hasn't been confirmed.
 
 ## Your Hive password
@@ -64,17 +64,17 @@ hive-mcp needs `HIVE_PASSWORD` for the first login and, later, to log in again a
 **Look, don't touch** (lowest risk):
 
 - Writes off (the default)
-- Leave out `raw` if you don't need it
+- `raw` stays off unless you list it
 
 **Heating control:**
 
 - `HIVE_ALLOW_WRITES=true`
-- Only the toolsets you use, for example `home,heating,hotwater`, and leave `raw` out
+- Only the toolsets you use, for example `home,heating,hotwater`, without `raw`
 - Keep tool confirmations on in your MCP client, so you approve each change
 
 **Everything** (for a single trusted user, working interactively):
 
-- Writes on and all toolsets
+- Writes on and all toolsets (`all,raw` if you want the raw API tool too)
 - Don't mix it with untrusted content, such as pasted emails or web pages, in the same conversation as instructions to change things
 
 ## Network exposure

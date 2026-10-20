@@ -6,6 +6,35 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+This release follows a security review. Read **Breaking changes** before upgrading.
+
+### Breaking changes
+
+- `HIVE_TOOLSETS=all` (the default) no longer includes the `raw` toolset (`hive_api_request`). List it by name to keep it, for example `HIVE_TOOLSETS=all,raw`.
+- `HIVE_API_URL`, `HIVE_SSO_URL` and `HIVE_COGNITO_URL` must be `https://` unless they point at a loopback address.
+- `MCP_AUTH_TOKEN` must be at least 16 characters, and `MCP_ALLOW_UNAUTHENTICATED=true` now also needs `MCP_ALLOWED_HOSTS`. The server refuses to start otherwise.
+- With `MCP_ALLOWED_HOSTS` set, browser requests whose `Origin` isn't on the list are refused. An entry without a port matches only the default port (80 or 443) in an `Origin`, so list `host:port` for a page on another port.
+- `/mcp` only accepts `POST` with a JSON body (other methods get `405`, bodies over 1 MiB `413`).
+- `hive_auth_start` and `hive_auth_complete` are only registered with the new `HIVE_ALLOW_LOGIN_TOOLS=true`. They log in with the password and can make Hive text an SMS code, so a model calling them in a loop could text you repeatedly or get the account locked. `hive-mcp login` in a terminal works as before.
+- Heating targets above 25 °C are refused unless you raise the new `HIVE_MAX_TEMP` (it was 32 °C).
+- `hive_set_heating_mode` with `mode: manual`, `hive_set_heating_temperature` with `mode: manual` (or on a zone already in manual) and `hive_set_hot_water_mode` with `mode: on` need the new `confirm: true` argument, because those settings last indefinitely. `hive_set_holiday_mode` refuses an end more than 60 days after the start.
+
+### Security
+
+- `hive_auth_start` (and `hive-mcp login`) won't ask Hive for another SMS code within a minute of the last one, or try again within five minutes of a login Hive refused. Five wrong codes end a pending login.
+- `hive-mcp logout` now also revokes the refresh token with Cognito's `RevokeToken`, and renews an expired access token first so it can still ask Hive to forget the remembered device. Before, it only forgot the device if the access token hadn't expired.
+- A running server treats a deleted token file as logged out and drops the tokens and device it holds in memory. Before, a refresh could write the deleted file back.
+- Heating targets are capped by the new `HIVE_MAX_TEMP` (default 25 °C; Hive allows up to 32) for every mode, boost and holiday mode. Holiday mode can last at most 60 days.
+- The HTTP server checks `Origin` against `MCP_ALLOWED_HOSTS` (rejecting `null` and empty origins), logs a warning when running unauthenticated, and sets read and idle timeouts.
+- `hive-mcp healthcheck` checks the configured `MCP_HTTP_HOST` and port (including `MCP_HTTP_PORT_FILE`) instead of always `127.0.0.1` and `MCP_HTTP_PORT`.
+- `HIVE_API_URL`, `HIVE_SSO_URL` and `HIVE_COGNITO_URL` must use `https://` (plain `http://` only to a loopback address) and can't contain credentials. Requests to Hive and Cognito never follow redirects, which could otherwise carry tokens to another host.
+- Only a `401` from Hive refreshes the login (a `403` did too). A `POST` is retried only after a `429`, never after a `502` or `503`. Responses over 64 MiB fail with a clear error instead of being truncated.
+- The token file is saved through a uniquely named temporary file (`os.CreateTemp`), synced before the rename. It used to be `<file>.<pid>.tmp`, which two containers (both PID 1) sharing a volume could write at the same time.
+- The image creates `/data` with mode `0700`, as the docs said; it was `0755`.
+- Raw output (`raw: true` and `hive_api_request`) redacts the account's user profile (name, email, phone, address, postcode), keeping only fields like its ID, time zone and temperature unit. `hive_auth_status`, `hive_auth_start` and `hive_auth_complete` mask the email address and leave out the token file's path. `hive-mcp status` in a terminal still shows both.
+- Build with Go 1.27.2 (`toolchain go1.27.2`, `golang:1.27` in the Dockerfile), and pin the Docker base images (`golang`, `distroless/static-debian13`) by digest; Dependabot keeps the digests current.
+- CI runs `govulncheck` (pinned to v1.9.0).
+
 ## [0.1.1] - 2026-10-16
 
 ### Security

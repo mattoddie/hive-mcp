@@ -21,19 +21,21 @@ type getHeatingArgs struct {
 
 type setTempArgs struct {
 	zoneArgs
-	Temperature float64 `json:"temperature" jsonschema:"Target temperature in °C, 5 to 32 in steps of 0.5"`
+	Temperature float64 `json:"temperature" jsonschema:"Target temperature in °C, from 5 in steps of 0.5, up to HIVE_MAX_TEMP (see the schema maximum)"`
 	Mode        string  `json:"mode,omitempty" jsonschema:"Also switch mode: manual (hold this temperature) or schedule (just until the next scheduled change, as turning the dial does)"`
+	confirmArgs
 }
 
 type setModeArgs struct {
 	zoneArgs
 	Mode        string   `json:"mode" jsonschema:"schedule (follow the heating schedule), manual (hold one temperature) or off (frost protection only)"`
-	Temperature *float64 `json:"temperature,omitempty" jsonschema:"With manual: the temperature to hold, in °C (5 to 32 in steps of 0.5). Default: the zone's current target"`
+	Temperature *float64 `json:"temperature,omitempty" jsonschema:"With manual: the temperature to hold, in °C (from 5 in steps of 0.5, up to HIVE_MAX_TEMP). Default: the zone's current target"`
+	confirmArgs
 }
 
 type boostHeatingArgs struct {
 	zoneArgs
-	Temperature float64 `json:"temperature" jsonschema:"Temperature to boost to, in °C (5 to 32 in steps of 0.5)"`
+	Temperature float64 `json:"temperature" jsonschema:"Temperature to boost to, in °C (from 5 in steps of 0.5, up to HIVE_MAX_TEMP)"`
 	Minutes     *int    `json:"minutes,omitempty" jsonschema:"How long to boost for, in minutes (default 60, at most 360)"`
 }
 
@@ -70,7 +72,7 @@ func registerHeating(c *Context) {
 		var out []Obj
 		for _, p := range list {
 			if a.Raw {
-				out = append(out, p)
+				out = append(out, redactObj(p))
 			} else {
 				out = append(out, n.SummarizeHeating(p, time.Now()))
 			}
@@ -127,12 +129,12 @@ func registerHeating(c *Context) {
 
 	add(c, Def{
 		Toolset: "heating", Name: "hive_set_heating_temperature", Title: "Set heating temperature",
-		Description: "Set a zone's target temperature. In schedule mode this lasts until the next scheduled change, like turning the thermostat dial; pass mode=manual to hold it. If the zone is off, the target is saved but nothing heats until the mode changes.",
+		Description: "Set a zone's target temperature. In schedule mode this lasts until the next scheduled change, like turning the thermostat dial; pass mode=manual to hold it. If the zone is off, the target is saved but nothing heats until the mode changes. Holding a temperature in manual mode (mode=manual, or a zone that is already in manual) lasts indefinitely, so it needs confirm: true; prefer hive_boost_heating for a temporary change.",
 		Gate:        Write, Idempotent: true,
 		Enums:  map[string][]string{"mode": {"manual", "schedule"}},
-		Ranges: map[string][2]float64{"temperature": tempRange},
+		Ranges: map[string][2]float64{"temperature": c.tempRange()},
 	}, func(ctx context.Context, a setTempArgs) (any, error) {
-		if err := checkTemperature("temperature", a.Temperature); err != nil {
+		if err := checkTemperature("temperature", a.Temperature, c.maxTemp()); err != nil {
 			return nil, err
 		}
 		_, p, err := zone(ctx, a.Zone, false)
@@ -140,6 +142,11 @@ func registerHeating(c *Context) {
 			return nil, err
 		}
 		body := Obj{"target": a.Temperature}
+		if a.Mode == "manual" || (a.Mode == "" && hive.Str(p, "state", "mode") == "MANUAL") {
+			if err := needConfirm(a.Confirm, fmt.Sprintf("Manual mode at %g °C", a.Temperature), "hive_boost_heating"); err != nil {
+				return nil, err
+			}
+		}
 		if a.Mode != "" {
 			body["mode"] = heatingModes[a.Mode]
 		}
@@ -152,10 +159,10 @@ func registerHeating(c *Context) {
 
 	add(c, Def{
 		Toolset: "heating", Name: "hive_set_heating_mode", Title: "Set heating mode",
-		Description: "Switch a zone between schedule (follow the weekly schedule), manual (hold one temperature) and off (frost protection only). Cancels a boost.",
+		Description: "Switch a zone between schedule (follow the weekly schedule), manual (hold one temperature) and off (frost protection only). Cancels a boost. Manual lasts indefinitely, so it needs confirm: true; prefer hive_boost_heating for a temporary change.",
 		Gate:        Write, Idempotent: true,
 		Enums:  map[string][]string{"mode": {"schedule", "manual", "off"}},
-		Ranges: map[string][2]float64{"temperature": tempRange},
+		Ranges: map[string][2]float64{"temperature": c.tempRange()},
 	}, func(ctx context.Context, a setModeArgs) (any, error) {
 		mode, ok := heatingModes[a.Mode]
 		if !ok {
@@ -166,7 +173,7 @@ func registerHeating(c *Context) {
 			if a.Mode != "manual" {
 				return nil, fmt.Errorf("temperature only goes with mode manual; use hive_set_heating_temperature otherwise")
 			}
-			if err := checkTemperature("temperature", *a.Temperature); err != nil {
+			if err := checkTemperature("temperature", *a.Temperature, c.maxTemp()); err != nil {
 				return nil, err
 			}
 			body["target"] = *a.Temperature
@@ -175,6 +182,17 @@ func registerHeating(c *Context) {
 		if err != nil {
 			return nil, err
 		}
+		if a.Mode == "manual" {
+			target, _ := hive.Num(p, "state", "target")
+			if a.Temperature != nil {
+				target = *a.Temperature
+			} else if err := checkTemperature("the zone's current target", target, c.maxTemp()); err != nil {
+				return nil, fmt.Errorf("%w; pass a temperature to hold", err)
+			}
+			if err := needConfirm(a.Confirm, fmt.Sprintf("Manual mode at %g °C", target), "hive_boost_heating"); err != nil {
+				return nil, err
+			}
+		}
 		return change(ctx, cl, p, body, summarize)
 	})
 
@@ -182,9 +200,9 @@ func registerHeating(c *Context) {
 		Toolset: "heating", Name: "hive_boost_heating", Title: "Boost heating",
 		Description: "Boost a zone: heat to a temperature for a number of minutes, then go back to the previous mode. Replaces any boost already running.",
 		Gate:        Write,
-		Ranges:      map[string][2]float64{"temperature": tempRange, "minutes": {1, 360}},
+		Ranges:      map[string][2]float64{"temperature": c.tempRange(), "minutes": {1, 360}},
 	}, func(ctx context.Context, a boostHeatingArgs) (any, error) {
-		if err := checkTemperature("temperature", a.Temperature); err != nil {
+		if err := checkTemperature("temperature", a.Temperature, c.maxTemp()); err != nil {
 			return nil, err
 		}
 		minutes := 60
