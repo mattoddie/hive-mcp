@@ -10,6 +10,7 @@ This release follows a security review. Read **Breaking changes** before upgradi
 
 ### Breaking changes
 
+- `HIVE_TOOLSETS=all` (the default) no longer includes the `raw` toolset (`hive_api_request`). List it by name to keep it, for example `HIVE_TOOLSETS=all,raw`.
 - `HIVE_API_URL`, `HIVE_SSO_URL` and `HIVE_COGNITO_URL` must be `https://` unless they point at a loopback address.
 - `MCP_AUTH_TOKEN` must be at least 16 characters, and `MCP_ALLOW_UNAUTHENTICATED=true` now also needs `MCP_ALLOWED_HOSTS`. The server refuses to start otherwise.
 - With `MCP_ALLOWED_HOSTS` set, browser requests whose `Origin` isn't on the list are refused. An entry without a port matches only the default port (80 or 443) in an `Origin`, so list `host:port` for a page on another port.
@@ -30,6 +31,7 @@ This release follows a security review. Read **Breaking changes** before upgradi
 - Only a `401` from Hive refreshes the login (a `403` did too). A `POST` is retried only after a `429`, never after a `502` or `503`. Responses over 64 MiB fail with a clear error instead of being truncated.
 - The token file is saved through a uniquely named temporary file (`os.CreateTemp`), synced before the rename. It used to be `<file>.<pid>.tmp`, which two containers (both PID 1) sharing a volume could write at the same time.
 - The image creates `/data` with mode `0700`, as the docs said; it was `0755`.
+- Raw output (`raw: true` and `hive_api_request`) redacts the account's user profile (name, email, phone, address, postcode), keeping only fields like its ID, time zone and temperature unit. `hive_auth_status`, `hive_auth_start` and `hive_auth_complete` mask the email address and leave out the token file's path. `hive-mcp status` in a terminal still shows both.
 
 ## [0.1.1] - 2026-10-16
 

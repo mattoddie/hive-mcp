@@ -12,7 +12,7 @@ Each tool is labelled with the setting it needs:
 | 🟠 write | `HIVE_ALLOW_WRITES=true` |
 | 🔵 login | `HIVE_ALLOW_LOGIN_TOOLS=true` (they log in with the password and can text an SMS code) |
 
-Every tool also needs its toolset to be enabled in `HIVE_TOOLSETS`, which enables all toolsets by default. Temperatures are in °C, and heating targets go from 5 °C up to `HIVE_MAX_TEMP` (default 25 °C) in steps of 0.5. Heating mode `manual` and hot water mode `on` last indefinitely, so they need `confirm: true`. Times are in the home's local time. Read tools return compact summaries, and many take `raw: true` for Hive's full objects and `fresh: true` to skip the short cache.
+Every tool also needs its toolset to be enabled in `HIVE_TOOLSETS`, which enables every toolset except `raw` by default. Temperatures are in °C, and heating targets go from 5 °C up to `HIVE_MAX_TEMP` (default 25 °C) in steps of 0.5. Heating mode `manual` and hot water mode `on` last indefinitely, so they need `confirm: true`. Times are in the home's local time. Read tools return compact summaries, and many take `raw: true` for Hive's full objects and `fresh: true` to skip the short cache.
 
 ## Contents
 
@@ -20,7 +20,7 @@ Every tool also needs its toolset to be enabled in `HIVE_TOOLSETS`, which enable
 - [`heating`](#heating): Heating zones and radiator valve (TRV) zones: temperatures, modes and schedules; set the temperature or mode, boost and cancel a boost.
 - [`hotwater`](#hotwater): Hot water: status and schedule; switch it on, off or back to its schedule, boost and cancel a boost.
 - [`devices`](#devices): Smart plugs, lights and sensors: on or off, power use, brightness, colour temperature, open or closed.
-- [`raw`](#raw): A raw API escape hatch for anything the other tools don't cover. It is limited to GET requests unless writes are enabled.
+- [`raw`](#raw): A raw API escape hatch for anything the other tools don't cover. It isn't part of `HIVE_TOOLSETS=all`, so list it by name (for example `all,raw`). It is limited to GET requests unless writes are enabled, and redacts the account's user profile.
 - [Prompts](#prompts)
 
 ## home
@@ -60,7 +60,7 @@ _No arguments._
 
 🟢 read
 
-Show whether this server is logged in to Hive: the account, whether this server is a remembered device (so it can log in again without an SMS code), when the current token expires and any login error. Never shows passwords, tokens or device secrets.
+Show whether this server is logged in to Hive: the account (with the email address masked), whether this server is a remembered device (so it can log in again without an SMS code), when the current token expires and any login error. Never shows passwords, tokens or device secrets.
 
 _No arguments._
 
@@ -318,7 +318,7 @@ Switch a Hive smart plug on or off. Check what's plugged in with the user before
 
 ## raw
 
-A raw API escape hatch for anything the other tools don't cover. It is limited to GET requests unless writes are enabled.
+A raw API escape hatch for anything the other tools don't cover. It isn't part of `HIVE_TOOLSETS=all`, so list it by name (for example `all,raw`). It is limited to GET requests unless writes are enabled, and redacts the account's user profile.
 
 | Tool | Access | Summary |
 |---|---|---|
@@ -328,7 +328,7 @@ A raw API escape hatch for anything the other tools don't cover. It is limited t
 
 🟢 read · destructive
 
-Call any path of Hive's API (the undocumented "beekeeper" API the Hive app uses) directly, for anything the other tools don't cover, such as /nodes/all, /devices, /products or /actions. All methods are allowed. Changes go straight to Hive with no checks, so confirm them with the user first.
+Call any path of Hive's API (the undocumented "beekeeper" API the Hive app uses) directly, for anything the other tools don't cover, such as /nodes/all, /devices, /products or /actions. The account's user profile (name, email, phone, address) is redacted from responses. All methods are allowed. Changes go straight to Hive with no checks, so confirm them with the user first.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|

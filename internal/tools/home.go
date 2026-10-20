@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mattoddie/hive-mcp/internal/hive"
@@ -40,9 +41,9 @@ func registerHome(c *Context) {
 
 	add(c, Def{
 		Toolset: "home", Name: "hive_auth_status", Title: "Hive login status",
-		Description: "Show whether this server is logged in to Hive: the account, whether this server is a remembered device (so it can log in again without an SMS code), when the current token expires and any login error. Never shows passwords, tokens or device secrets.",
+		Description: "Show whether this server is logged in to Hive: the account (with the email address masked), whether this server is a remembered device (so it can log in again without an SMS code), when the current token expires and any login error. Never shows passwords, tokens or device secrets.",
 	}, func(ctx context.Context, _ NoArgs) (any, error) {
-		return cl.Auth.Status(), nil
+		return authStatus(cl.Auth.Status()), nil
 	})
 
 	add(c, Def{
@@ -55,6 +56,7 @@ func registerHome(c *Context) {
 		if err != nil {
 			return nil, err
 		}
+		res = maskLogin(res)
 		out := Obj{"result": res}
 		if res.CodeRequired {
 			out["next_step"] = fmt.Sprintf("Hive has sent a code by text message to %s. Ask the user for it and call hive_auth_complete with it within about three minutes.", res.CodeSentTo)
@@ -67,7 +69,8 @@ func registerHome(c *Context) {
 		Description: "Finish a login started with hive_auth_start by giving the code Hive texted to the account's phone. This also registers the server as a remembered device, so it won't need a code again.",
 		Gate:        Login, ReadOnly: boolPtr(false),
 	}, func(ctx context.Context, a authCompleteArgs) (any, error) {
-		return cl.Auth.CompleteLogin(ctx, a.Code)
+		res, err := cl.Auth.CompleteLogin(ctx, a.Code)
+		return maskLogin(res), err
 	})
 
 	add(c, Def{
@@ -138,7 +141,7 @@ func registerHome(c *Context) {
 				s["discontinued"] = note
 			}
 			if a.Raw {
-				out = append(out, d)
+				out = append(out, redactObj(d))
 			} else {
 				out = append(out, s)
 			}
@@ -250,4 +253,37 @@ func attention(n *hive.Nodes) []string {
 		}
 	}
 	return out
+}
+
+// maskEmail keeps enough of the account's email address to recognise it
+// ("s***@example.com") without sending the whole address to the model.
+func maskEmail(s string) string {
+	local, domain, ok := strings.Cut(s, "@")
+	if !ok || local == "" {
+		if s == "" {
+			return ""
+		}
+		return "***"
+	}
+	return local[:1] + "***@" + domain
+}
+
+// authStatus is Auth.Status for the model: the email address masked, and
+// no path to the token file.
+func authStatus(st map[string]any) map[string]any {
+	if u, ok := st["username"].(string); ok {
+		st["username"] = maskEmail(u)
+	}
+	delete(st, "token_file")
+	return st
+}
+
+// maskLogin is a login result for the model.
+func maskLogin(res *hive.LoginResult) *hive.LoginResult {
+	if res == nil {
+		return nil
+	}
+	r := *res
+	r.Username, r.TokenFile = maskEmail(r.Username), ""
+	return &r
 }

@@ -132,7 +132,7 @@ Hive itself only hears from devices every so often, so even a fresh reading can 
 
 ## The raw API tool
 
-`hive_api_request` (toolset `raw`) calls any path of Hive's API, such as `/nodes/all`, `/devices` or `/actions`. It's a fallback for things the other tools don't cover. Without `HIVE_ALLOW_WRITES` it only allows `GET`. With writes on it allows `POST`, `PUT` and `DELETE` too, with **no validation**, so it's marked destructive. Leave `raw` out of `HIVE_TOOLSETS` if you want the assistant limited to the curated tools.
+`hive_api_request` (toolset `raw`) calls any path of Hive's API, such as `/nodes/all`, `/devices` or `/actions`. It's a fallback for things the other tools don't cover. Without `HIVE_ALLOW_WRITES` it only allows `GET`. With writes on it allows `POST`, `PUT` and `DELETE` too, with **no validation**, so it's marked destructive. It isn't part of `HIVE_TOOLSETS=all` (the default): add it by name, for example `all,raw`. The account's user profile (name, email, phone, address) is redacted from what it returns.
 
 ## Tips for good results
 

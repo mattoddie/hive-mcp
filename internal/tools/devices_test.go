@@ -1,10 +1,12 @@
 package tools
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	"github.com/mattoddie/hive-mcp/internal/config"
+	"github.com/mattoddie/hive-mcp/internal/hive"
 	"github.com/mattoddie/hive-mcp/internal/hive/hivetest"
 )
 
@@ -83,5 +85,34 @@ func TestRawRequest(t *testing.T) {
 	}
 	if got := rw.lastBody(); !strings.HasSuffix(got, `{"status":"OFF"}`) {
 		t.Errorf("raw post: %s", got)
+	}
+}
+
+func TestRawOutputRedactsTheUserProfile(t *testing.T) {
+	env := newEnv(t)
+	res := env.obj("hive_api_request", map[string]any{"path": "/nodes/all", "query": map[string]any{"products": true, "devices": true}})
+	user := res["user"].(Obj)
+	for _, k := range []string{"email", "username", "firstName", "lastName", "postcode"} {
+		if user[k] != "[redacted]" {
+			t.Errorf("user.%s: %v", k, user[k])
+		}
+	}
+	if user["id"] != "user-1" || user["temperatureUnit"] != "C" {
+		t.Errorf("kept fields: %v", user)
+	}
+	if s := asJSON(t, res); strings.Contains(s, "sam@example.com") || strings.Contains(s, "Smith") {
+		t.Errorf("profile leaked: %s", s)
+	}
+	// The profile endpoint itself is redacted at the top level.
+	env.mock.On("GET", "/users/me", func(hivetest.Request, []string) (int, any) {
+		return 200, map[string]any{"id": "user-1", "email": "sam@example.com", "mobile": "+447700900000"}
+	})
+	if me := env.obj("hive_api_request", map[string]any{"path": "/users/me"}); me["email"] != "[redacted]" || me["mobile"] != "[redacted]" || me["id"] != "user-1" {
+		t.Errorf("/users/me: %v", me)
+	}
+	// Redacting copies: the cached reading still has the profile for the summaries.
+	n, err := env.client.Nodes(context.Background(), false)
+	if err != nil || hive.Str(n.Raw, "user", "email") != "sam@example.com" {
+		t.Errorf("cache changed: %v", err)
 	}
 }

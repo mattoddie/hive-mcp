@@ -72,7 +72,7 @@ func registerHeating(c *Context) {
 		var out []Obj
 		for _, p := range list {
 			if a.Raw {
-				out = append(out, p)
+				out = append(out, redactObj(p))
 			} else {
 				out = append(out, n.SummarizeHeating(p, time.Now()))
 			}

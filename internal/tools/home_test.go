@@ -126,14 +126,17 @@ func TestAuthToolsLogInWithSMSCode(t *testing.T) {
 		t.Errorf("wrong code: %s", msg)
 	}
 	res := env.obj("hive_auth_complete", map[string]any{"code": hivetest.SMSCode})
-	if res["logged_in"] != true || res["device_remembered"] != true {
+	if res["logged_in"] != true || res["device_remembered"] != true || res["username"] != "s***@example.com" || res["token_file"] != nil {
 		t.Errorf("complete: %v", res)
 	}
 	st := env.obj("hive_auth_status", nil)
 	if st["logged_in"] != true || st["device_remembered"] != true || st["device_name"] != "hive-mcp-test" {
 		t.Errorf("status: %v", st)
 	}
-	if s := asJSON(t, st); strings.Contains(s, "id-") || strings.Contains(s, "refresh-") || strings.Contains(s, hivetest.Password) {
+	if st["username"] != "s***@example.com" || st["token_file"] != nil {
+		t.Errorf("status should mask the email and leave out the token file: %v", st)
+	}
+	if s := asJSON(t, st); strings.Contains(s, "id-") || strings.Contains(s, "refresh-") || strings.Contains(s, hivetest.Password) || strings.Contains(s, hivetest.Username) {
 		t.Errorf("status leaks a secret: %s", s)
 	}
 	if env.obj("hive_get_overview", nil)["heating"] == nil {

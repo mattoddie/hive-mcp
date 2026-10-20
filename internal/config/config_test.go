@@ -32,7 +32,7 @@ func TestDefaults(t *testing.T) {
 	if cfg.Tools.MaxTemp != 25 {
 		t.Errorf("max temp: %g", cfg.Tools.MaxTemp)
 	}
-	if cfg.Tools.AllowWrites || cfg.Tools.AllowLoginTools || len(cfg.Tools.Toolsets) != len(Toolsets) {
+	if cfg.Tools.AllowWrites || cfg.Tools.AllowLoginTools || len(cfg.Tools.Toolsets) != len(Toolsets)-1 || cfg.Tools.Toolsets["raw"] {
 		t.Errorf("tools: %+v", cfg.Tools)
 	}
 }
@@ -146,5 +146,17 @@ func TestURLsAllowPlainHTTPOnlyToLoopback(t *testing.T) {
 	_, err := Load(MapEnv(map[string]string{"HIVE_COGNITO_URL": "https://u:" + "s3cret" + "@cognito.example"}))
 	if err == nil || strings.Contains(err.Error(), "s3cret") {
 		t.Errorf("credentials in a URL should be refused without echoing them: %v", err)
+	}
+}
+
+func TestRawToolsetIsOptIn(t *testing.T) {
+	for v, raw := range map[string]bool{"": false, "all": false, "all,raw": true, "home,raw": true, "home": false} {
+		cfg, err := Load(MapEnv(map[string]string{"HIVE_TOOLSETS": v}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Tools.Toolsets["raw"] != raw {
+			t.Errorf("HIVE_TOOLSETS=%q: raw %v", v, cfg.Tools.Toolsets["raw"])
+		}
 	}
 }

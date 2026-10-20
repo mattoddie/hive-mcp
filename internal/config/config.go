@@ -18,6 +18,9 @@ import (
 // Toolsets are groups of tools that can be switched on and off with HIVE_TOOLSETS.
 var Toolsets = []string{"home", "heating", "hotwater", "devices", "raw"}
 
+// OptInToolset isn't included in "all" (the default): it has to be listed by name.
+const OptInToolset = "raw"
+
 // Defaults. Hive's sign-in page (DefaultSSOURL) names the AWS Cognito user
 // pool and app client its website logs in with, and hive-mcp reads them from
 // there at login, as pyhiveapi and Home Assistant do. HIVE_COGNITO_POOL_ID
@@ -256,13 +259,17 @@ func Load(env Env) (*Config, error) {
 		switch {
 		case name == "":
 		case name == "all":
+			// Every toolset except raw, which reaches any API path (including the
+			// account's profile) and has to be named to be enabled.
 			for _, ts := range Toolsets {
-				t.Toolsets[ts] = true
+				if ts != OptInToolset {
+					t.Toolsets[ts] = true
+				}
 			}
 		case contains(Toolsets, name):
 			t.Toolsets[name] = true
 		default:
-			return nil, fmt.Errorf("unknown toolset %q in HIVE_TOOLSETS; valid: all, %s", name, strings.Join(Toolsets, ", "))
+			return nil, fmt.Errorf("unknown toolset %q in HIVE_TOOLSETS; valid: all (every toolset but raw), %s", name, strings.Join(Toolsets, ", "))
 		}
 	}
 

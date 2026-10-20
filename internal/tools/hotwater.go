@@ -40,7 +40,7 @@ func registerHotWater(c *Context) {
 			return nil, err
 		}
 		if a.Raw {
-			return p, nil
+			return redactObj(p), nil
 		}
 		return n.SummarizeHotWater(p, time.Now()), nil
 	})

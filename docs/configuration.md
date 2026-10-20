@@ -62,7 +62,7 @@ Running `login` again later doesn't send a code if the server is still a remembe
 | `HIVE_ALLOW_WRITES` | `false` | Register tools that change things: heating temperature and mode, boosts, hot water, holiday mode, plugs and lights, and non-GET requests in the raw API tool. |
 | `HIVE_ALLOW_LOGIN_TOOLS` | `false` | Register `hive_auth_start` and `hive_auth_complete`, so the assistant can log in for you. They log in with `HIVE_PASSWORD` and can make Hive text an SMS code, so they're off unless you ask for them. `hive_auth_status` is always available. |
 | `HIVE_MAX_TEMP` | `25` | The highest heating target, in °C, that any tool will set: temperature, manual mode, boosts and holiday mode. 5 to 32 in steps of 0.5 (Hive itself allows up to 32). |
-| `HIVE_TOOLSETS` | `all` | Comma-separated list of [toolsets](#choosing-toolsets) to expose. |
+| `HIVE_TOOLSETS` | `all` | Comma-separated list of [toolsets](#choosing-toolsets) to expose. `all` means every toolset except `raw`, which has to be named, for example `all,raw`. |
 
 Boolean variables accept `true`/`false`, `1`/`0`, `yes`/`no` and `on`/`off`. Anything else stops the server with an error.
 
@@ -143,7 +143,7 @@ Every tool's name, description and argument schema is sent to the model, which u
 | `heating` | Heating zones and radiator valves |
 | `hotwater` | Hot water |
 | `devices` | Smart plugs, lights and sensors |
-| `raw` | Any API path. Handy, but gives broad access. |
+| `raw` | Any API path. Handy, but gives broad access, so it isn't part of `all`: list it by name to enable it. The account's user profile (name, email, phone, address) is redacted from its output. |
 
 The [tool reference](tools.md) lists the tools in each toolset. Some suggested sets:
 
@@ -151,7 +151,8 @@ The [tool reference](tools.md) lists the tools in each toolset. Some suggested s
 |---|---|
 | Heating and hot water only | `home,heating,hotwater` |
 | Lights and plugs only | `home,devices` |
-| Everything (default) | `all` |
+| Everything except the raw API tool (default) | `all` |
+| Everything, including the raw API tool | `all,raw` |
 
 ## Advanced: Hive's endpoints
 

@@ -48,7 +48,7 @@ func registerDevices(c *Context) {
 			items := []Obj{}
 			for _, p := range n.Products(types...) {
 				if a.Raw {
-					items = append(items, p)
+					items = append(items, redactObj(p))
 				} else {
 					items = append(items, f(p))
 				}

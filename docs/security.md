@@ -31,7 +31,7 @@ The best defence is to limit what's possible, not to rely on the model behaving.
 | Validation | Built in | Heating targets must be 5 °C to `HIVE_MAX_TEMP` (default 25 °C) in steps of 0.5, boosts last at most six hours, holiday mode at most 60 days, manual heating and hot water `on` (which last indefinitely) need `confirm: true`, brightness is 5–100% and colour temperatures stay within the bulb's range. Bad values are refused before anything reaches Hive. |
 | Tool annotations | Built in | Each tool is marked read-only or not, so MCP clients can ask for your confirmation before changes. With writes on, the raw API tool is marked destructive. |
 | Server instructions | Built in | With writes on, the model is told to confirm changes with you, prefer boosts to manual mode for temporary changes, and never turn heating off or set holiday mode without being asked. This helps, but it isn't a security boundary. |
-| No secret output | Built in | No tool or log line includes the password, tokens or device secret. `hive_auth_status` and `hive-mcp status` describe the login without showing them. |
+| No secret output | Built in | No tool or log line includes the password, tokens or device secret. `hive_auth_status` and `hive-mcp status` describe the login without showing them. `hive_auth_status` masks the account's email address and leaves out the token file's path, and raw output (`raw: true` and the raw API tool) redacts the user profile. |
 | No surprise texts | Built in, and `HIVE_ALLOW_LOGIN_TOOLS` (off by default) | The server never starts a login that would send an SMS code by itself, and it backs off for five minutes after a failed login, so it can't lock your account. The tools that log in from the chat aren't registered unless you turn them on, and even then they won't ask for another code within a minute of the last one or retry within five minutes of a refused login. |
 | Endpoint auth | `MCP_AUTH_TOKEN` | Bearer token required on every request, checked in constant time. The http transport refuses to start without one, or with one shorter than 16 characters. `MCP_ALLOW_UNAUTHENTICATED=true` skips it, but only together with `MCP_ALLOWED_HOSTS`, and logs a warning. |
 | Host and Origin allow-list | `MCP_ALLOWED_HOSTS` | Rejects requests with an unexpected `Host` header, and browser requests whose `Origin` isn't listed (including `null`). This blocks DNS-rebinding and cross-site attacks from browser pages. |
@@ -64,17 +64,17 @@ hive-mcp needs `HIVE_PASSWORD` for the first login and, later, to log in again a
 **Look, don't touch** (lowest risk):
 
 - Writes off (the default)
-- Leave out `raw` if you don't need it
+- `raw` stays off unless you list it
 
 **Heating control:**
 
 - `HIVE_ALLOW_WRITES=true`
-- Only the toolsets you use, for example `home,heating,hotwater`, and leave `raw` out
+- Only the toolsets you use, for example `home,heating,hotwater`, without `raw`
 - Keep tool confirmations on in your MCP client, so you approve each change
 
 **Everything** (for a single trusted user, working interactively):
 
-- Writes on and all toolsets
+- Writes on and all toolsets (`all,raw` if you want the raw API tool too)
 - Don't mix it with untrusted content, such as pasted emails or web pages, in the same conversation as instructions to change things
 
 ## Network exposure
