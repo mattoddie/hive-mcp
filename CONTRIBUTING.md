@@ -54,7 +54,7 @@ See [docs/development.md](docs/development.md) for the architecture, the login f
 
 ## Pull request guidelines
 
-- CI must be green. It runs the tests, lint and the generated-docs check, builds the image for amd64 and arm64, and smoke-tests the container.
+- CI must be green. It runs the tests, lint, the generated-docs check and govulncheck, builds the image for amd64 and arm64, and smoke-tests the container.
 - Match the existing style: `gofmt`, small focused functions, errors that tell the user what to do, and comments that explain *why* rather than *what*.
 - **No new dependencies without discussion.** The project deliberately stays small. The only direct dependencies are the MCP Go SDK and `jsonschema-go`.
 - Never include real passwords, tokens, token files, device IDs, addresses or other personal data in code, tests, fixtures or screenshots. Use obviously fake values like `sam@example.com` and `AB1 2CD`.

@@ -32,6 +32,8 @@ This release follows a security review. Read **Breaking changes** before upgradi
 - The token file is saved through a uniquely named temporary file (`os.CreateTemp`), synced before the rename. It used to be `<file>.<pid>.tmp`, which two containers (both PID 1) sharing a volume could write at the same time.
 - The image creates `/data` with mode `0700`, as the docs said; it was `0755`.
 - Raw output (`raw: true` and `hive_api_request`) redacts the account's user profile (name, email, phone, address, postcode), keeping only fields like its ID, time zone and temperature unit. `hive_auth_status`, `hive_auth_start` and `hive_auth_complete` mask the email address and leave out the token file's path. `hive-mcp status` in a terminal still shows both.
+- Build with Go 1.27.2 (`toolchain go1.27.2`, `golang:1.27` in the Dockerfile), and pin the Docker base images (`golang`, `distroless/static-debian13`) by digest; Dependabot keeps the digests current.
+- CI runs `govulncheck` (pinned to v1.9.0).
 
 ## [0.1.1] - 2026-10-16
 
