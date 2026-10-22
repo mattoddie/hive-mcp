@@ -6,6 +6,8 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-22
+
 ### Added
 
 - hive-mcp is published to the official [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.mattoddie/hive-mcp`, with the Docker image (run in stdio mode) and the MCP Bundles. Each stable release publishes the new version automatically. See [From the MCP Registry](docs/clients.md#from-the-mcp-registry).
@@ -82,7 +84,8 @@ First release, not yet tested against a live Hive account. Hive's API is unoffic
 - Multi-arch distroless Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - A mock Hive for tests (sign-in page, a Cognito that checks SRP proofs, SMS codes and remembered devices, and the API), and documentation including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/hive-mcp/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/mattoddie/hive-mcp/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/mattoddie/hive-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/mattoddie/hive-mcp/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mattoddie/hive-mcp/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/mattoddie/hive-mcp/compare/v0.1.0...v0.1.1
