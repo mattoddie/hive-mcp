@@ -6,6 +6,13 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+### Added
+
+- **Claude Desktop extension.** Each release has an MCP Bundle (`.mcpb`) for macOS, Windows and Linux on x64 and Arm. Open it to install hive-mcp in Claude Desktop with a settings form, without Docker. Logging in from Claude is on by default in the extension, so the one-time SMS login needs no terminal. See [Claude Desktop](docs/clients.md#claude-desktop).
+- `HIVE_AUDIT_LOG` records every call of a write tool, a login tool or a non-`GET` `hive_api_request` as a JSON line in a file (created with mode `0600`) or on standard error: the time, tool, arguments (with the SMS code and any secrets redacted) and outcome. Failed and refused calls are logged too. See [Audit log](docs/configuration.md#audit-log).
+- A variable set to exactly `${user_config.<key>}`, as Claude Desktop passes an extension setting left empty, counts as unset.
+- [Configuration](docs/configuration.md#keeping-the-tool-list-small) lists the size of the tool list for each toolset combination.
+
 ### Security
 
 - Built with Go 1.27.3, which fixes a `crypto/x509` vulnerability in the standard library (GO-2026-6809).

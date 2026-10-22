@@ -71,7 +71,13 @@ type Tools struct {
 	// mode, boost or holiday mode (HIVE_MAX_TEMP).
 	MaxTemp  float64
 	Toolsets map[string]bool
+	// AuditLog is where calls of tools that change things are recorded
+	// (HIVE_AUDIT_LOG): a file path, AuditLogStderr, or "" for no log.
+	AuditLog string
 }
+
+// AuditLogStderr is the HIVE_AUDIT_LOG value that writes the audit log to standard error.
+const AuditLogStderr = "stderr"
 
 // AllTools enables every tool, for documentation and tests.
 func AllTools() Tools {
@@ -108,17 +114,33 @@ func MapEnv(m map[string]string) Env {
 	return func(k string) (string, bool) { v, ok := m[k]; return v, ok }
 }
 
-// read returns a trimmed variable, honouring the <NAME>_FILE convention for Docker secrets.
+// placeholder matches a ${user_config.<key>} reference that an MCP Bundle host
+// such as Claude Desktop passed through unchanged because the user left an
+// optional setting empty. It means "not set", not a value.
+var placeholder = regexp.MustCompile(`^\$\{user_config\.[^}]*\}$`)
+
+// lookup returns a trimmed variable, or "" when it is unset, blank or an
+// unfilled bundle placeholder.
+func lookup(env Env, name string) string {
+	v, _ := env(name)
+	v = strings.TrimSpace(v)
+	if placeholder.MatchString(v) {
+		return ""
+	}
+	return v
+}
+
+// read returns a trimmed variable (empty when unset, blank or an unfilled
+// bundle placeholder), honouring the <NAME>_FILE convention for Docker secrets.
 func read(env Env, name string) (string, error) {
-	if file, ok := env(name + "_FILE"); ok && file != "" {
+	if file := lookup(env, name+"_FILE"); file != "" {
 		b, err := os.ReadFile(file)
 		if err != nil {
 			return "", fmt.Errorf("could not read %s_FILE (%s): %w", name, file, err)
 		}
 		return strings.TrimSpace(string(b)), nil
 	}
-	v, _ := env(name)
-	return strings.TrimSpace(v), nil
+	return lookup(env, name), nil
 }
 
 func boolValue(name, v string, fallback bool) (bool, error) {
@@ -253,6 +275,10 @@ func Load(env Env) (*Config, error) {
 	if t.MaxTemp, err = maxTemp(get("HIVE_MAX_TEMP")); err != nil {
 		return nil, err
 	}
+	t.AuditLog = get("HIVE_AUDIT_LOG")
+	if err := CheckAuditLog(t.AuditLog); err != nil {
+		return nil, err
+	}
 	t.Toolsets = map[string]bool{}
 	for _, name := range strings.Split(or(get("HIVE_TOOLSETS"), "all"), ",") {
 		name = strings.ToLower(strings.TrimSpace(name))
@@ -337,6 +363,28 @@ func Load(env Env) (*Config, error) {
 		}
 	}
 	return cfg, firstErr
+}
+
+// AuditLogMode is the permission an audit log file is created with: only the
+// server's user can read it, since it records what was changed and when.
+const AuditLogMode = 0o600
+
+// OpenAuditLog opens an audit log file for appending, creating it if needed.
+func OpenAuditLog(path string) (*os.File, error) {
+	return os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, AuditLogMode)
+}
+
+// CheckAuditLog checks that HIVE_AUDIT_LOG can be written, so a mistake is
+// reported at startup rather than on the first change.
+func CheckAuditLog(path string) error {
+	if path == "" || path == AuditLogStderr {
+		return nil
+	}
+	f, err := OpenAuditLog(path)
+	if err != nil {
+		return fmt.Errorf("HIVE_AUDIT_LOG: cannot write to %s: %w. Its directory must exist and be writable by the server (in Docker, mount a writable directory; the image runs as UID 65532)", path, err)
+	}
+	return f.Close()
 }
 
 func contains(list []string, s string) bool {

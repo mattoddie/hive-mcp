@@ -40,7 +40,7 @@ Ask about your home in plain English. The assistant picks from **24 tools** to l
 
 ## Highlights
 
-- **🐳 Docker-first and tiny.** One image (`ghcr.io/mattoddie/hive-mcp`) for `linux/amd64` and `linux/arm64`, about 20 MB. It's a single static Go binary on a distroless base, with no shell or package manager, running as a non-root user. It serves Streamable HTTP for a long-running service, or stdio for `docker run -i`. You can also run the binary on its own.
+- **🐳 Docker-first and tiny.** One image (`ghcr.io/mattoddie/hive-mcp`) for `linux/amd64` and `linux/arm64`, about 20 MB. It's a single static Go binary on a distroless base, with no shell or package manager, running as a non-root user. It serves Streamable HTTP for a long-running service, or stdio for `docker run -i`. You can also run the binary on its own. For Claude Desktop there's also a one-click extension bundle (`.mcpb`) that needs no Docker.
 - **🛡️ Safe by default.** The server is read-only unless you turn on writes. Tools that aren't allowed aren't registered at all, and every change is checked first: heating targets must be 5–25 °C in steps of 0.5 (raise the top with `HIVE_MAX_TEMP`), boosts are limited to six hours, holiday mode to 60 days, and settings that last indefinitely (manual heating, hot water on) need an explicit confirmation.
 - **📱 One SMS code, once.** Hive logins need a code sent by text message. You enter it once with `hive-mcp login`, and the server registers itself as a *remembered device*, so it can log in again on its own without another code. Passwords, tokens and device secrets never appear in tool output or logs.
 - **🔐 Real Cognito SRP.** It logs in the way the Hive app does (AWS Cognito with SRP, which never sends your password), checked against the exact maths of the client Home Assistant uses.
@@ -50,7 +50,9 @@ Ask about your home in plain English. The assistant picks from **24 tools** to l
 
 ## Quick start
 
-You need Docker, a Hive account that works in the Hive app, the phone that gets your Hive text messages, and an MCP client such as [Claude Code](https://claude.com/claude-code).
+**Using Claude Desktop?** Skip Docker: download the extension bundle (`.mcpb`) for your computer from the [latest release](https://github.com/mattoddie/hive-mcp/releases/latest), open it to install, fill in your Hive email and password, and ask Claude to *"log in to Hive"*. See [Claude Desktop](docs/clients.md#claude-desktop).
+
+Otherwise, you need Docker, a Hive account that works in the Hive app, the phone that gets your Hive text messages, and an MCP client such as [Claude Code](https://claude.com/claude-code).
 
 **1. Set up the server.**
 
@@ -93,7 +95,7 @@ HIVE_TOOLSETS=home,heating,hotwater   # optional: expose fewer tools
 docker compose up -d
 ```
 
-Read [Security](docs/security.md) before turning on writes. A heating system is a real thing in a real home.
+Read [Security](docs/security.md) before turning on writes. A heating system is a real thing in a real home. To keep a record of every change the assistant makes, set `HIVE_AUDIT_LOG` to a file path (see [Audit log](docs/configuration.md#audit-log)).
 
 ## What it can do
 

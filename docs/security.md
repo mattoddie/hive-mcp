@@ -33,6 +33,7 @@ The best defence is to limit what's possible, not to rely on the model behaving.
 | Server instructions | Built in | With writes on, the model is told to confirm changes with you, prefer boosts to manual mode for temporary changes, and never turn heating off or set holiday mode without being asked. This helps, but it isn't a security boundary. |
 | No secret output | Built in | No tool or log line includes the password, tokens or device secret. `hive_auth_status` and `hive-mcp status` describe the login without showing them. `hive_auth_status` masks the account's email address and leaves out the token file's path, and raw output (`raw: true` and the raw API tool) redacts the user profile. |
 | No surprise texts | Built in, and `HIVE_ALLOW_LOGIN_TOOLS` (off by default) | The server never starts a login that would send an SMS code by itself, and it backs off for five minutes after a failed login, so it can't lock your account. The tools that log in from the chat aren't registered unless you turn them on, and even then they won't ask for another code within a minute of the last one or retry within five minutes of a refused login. |
+| Audit log | `HIVE_AUDIT_LOG` (off by default) | Appends a JSON line for every change the assistant makes or tries to make, and every login it starts: the tool, its arguments (with the SMS code and any secrets redacted) and whether it worked. It shows after the fact what was changed and when. See [Audit log](configuration.md#audit-log). |
 | Endpoint auth | `MCP_AUTH_TOKEN` | Bearer token required on every request, checked in constant time. The http transport refuses to start without one, or with one shorter than 16 characters. `MCP_ALLOW_UNAUTHENTICATED=true` skips it, but only together with `MCP_ALLOWED_HOSTS`, and logs a warning. |
 | Host and Origin allow-list | `MCP_ALLOWED_HOSTS` | Rejects requests with an unexpected `Host` header, and browser requests whose `Origin` isn't listed (including `null`). This blocks DNS-rebinding and cross-site attacks from browser pages. |
 | Container | Built in | A distroless image with no shell, running as a non-root user. The default `compose.yaml` uses a read-only root filesystem, `cap_drop: [ALL]` and `no-new-privileges`. |
@@ -91,6 +92,7 @@ hive-mcp needs `HIVE_PASSWORD` for the first login and, later, to log in again a
 - [ ] The port is only reachable from machines that need it, or published on `127.0.0.1` behind a proxy.
 - [ ] TLS terminates at a reverse proxy if traffic crosses an untrusted network. Prefer a VPN to a public endpoint.
 - [ ] Writes are only enabled if you need them.
+- [ ] With writes on, `HIVE_AUDIT_LOG` records the changes somewhere you can read them.
 - [ ] `HIVE_TOOLSETS` lists only the toolsets you use.
 - [ ] The token file is on a persistent volume that only the server can read, and isn't copied anywhere else.
 - [ ] The Hive password is in a secret file or a private `.env`, and isn't committed anywhere.

@@ -160,3 +160,68 @@ func TestRawToolsetIsOptIn(t *testing.T) {
 		}
 	}
 }
+
+// Claude Desktop passes a bundle setting the user left empty as "", or, in some
+// versions, as the literal ${user_config.<key>}. Both mean unset.
+func TestBundleUnsetValues(t *testing.T) {
+	for _, unset := range []func(key string) string{
+		func(string) string { return "" },
+		func(key string) string { return "${user_config." + key + "}" },
+	} {
+		env := map[string]string{
+			"HOME":                   "/home/x",
+			"MCP_TRANSPORT":          "stdio",
+			"HIVE_USERNAME":          "sam@example.com",
+			"HIVE_PASSWORD":          unset("password"),
+			"HIVE_TOKEN_FILE":        unset("token_file"),
+			"HIVE_ALLOW_WRITES":      "false",
+			"HIVE_ALLOW_LOGIN_TOOLS": unset("allow_login_tools"),
+			"HIVE_MAX_TEMP":          unset("max_temp"),
+			"HIVE_TOOLSETS":          unset("toolsets"),
+			"HIVE_AUDIT_LOG":         unset("audit_log"),
+		}
+		cfg, err := Load(MapEnv(env))
+		if err != nil {
+			t.Fatalf("%q: %v", env["HIVE_TOOLSETS"], err)
+		}
+		h, tl := cfg.Hive, cfg.Tools
+		if h.Password != "" || h.TokenFile != filepath.Join("/home/x", ".config", "hive-mcp", "tokens.json") {
+			t.Errorf("%q: hive: %+v", env["HIVE_TOOLSETS"], h)
+		}
+		if tl.AllowWrites || tl.AllowLoginTools || tl.MaxTemp != DefaultMaxTemp || tl.AuditLog != "" || len(tl.Toolsets) != len(Toolsets)-1 {
+			t.Errorf("%q: tools: %+v", env["HIVE_TOOLSETS"], tl)
+		}
+	}
+	// Only a whole placeholder is treated as unset.
+	cfg, err := Load(MapEnv(map[string]string{"HIVE_DEVICE_NAME": "x${user_config.device_name}"}))
+	if err != nil || cfg.Hive.DeviceName != "x${user_config.device_name}" {
+		t.Errorf("partial placeholder: %v %v", cfg, err)
+	}
+}
+
+func TestAuditLog(t *testing.T) {
+	load := func(v string) (*Config, error) {
+		return Load(MapEnv(map[string]string{"HOME": "/home/x", "HIVE_AUDIT_LOG": v}))
+	}
+	if cfg, err := load(""); err != nil || cfg.Tools.AuditLog != "" {
+		t.Errorf("audit log on by default: %v %v", cfg, err)
+	}
+	if cfg, err := load("stderr"); err != nil || cfg.Tools.AuditLog != AuditLogStderr {
+		t.Errorf("stderr: %v %v", cfg, err)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "audit.jsonl")
+	if cfg, err := load(path); err != nil || cfg.Tools.AuditLog != path {
+		t.Errorf("path: %v %v", cfg, err)
+	}
+	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != AuditLogMode {
+		t.Errorf("created %v, %v", info, err)
+	}
+	_, err := load(filepath.Join(dir, "missing", "audit.jsonl"))
+	if err == nil || !strings.Contains(err.Error(), "HIVE_AUDIT_LOG: cannot write to") {
+		t.Errorf("missing directory: %v", err)
+	}
+	if _, err := load(dir); err == nil {
+		t.Error("a directory was accepted as the audit log")
+	}
+}
