@@ -20,14 +20,6 @@
       "runtimeArguments": [
         {
           "type": "named",
-          "name": "-i"
-        },
-        {
-          "type": "named",
-          "name": "--rm"
-        },
-        {
-          "type": "named",
           "name": "-v",
           "description": "Docker volume for the login (tokens and the remembered device), so it survives restarts. Use the same volume for `hive-mcp login`.",
           "isRequired": true,
