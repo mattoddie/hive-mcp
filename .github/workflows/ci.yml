@@ -30,8 +30,19 @@ jobs:
         run: go test -race ./...
         env:
           CGO_ENABLED: "1"
-      - name: Check docs/tools.md and the bundle manifest are up to date
+      - name: Check docs/tools.md, the bundle manifest and server.json are up to date
         run: make docs-check
+      - name: Validate server.json with mcp-publisher
+        env:
+          # Keep in step with the release workflow's registry job.
+          MCP_PUBLISHER_VERSION: v1.8.1
+          MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/mcp-publisher.tar.gz" \
+            "https://github.com/modelcontextprotocol/registry/releases/download/$MCP_PUBLISHER_VERSION/mcp-publisher_linux_amd64.tar.gz"
+          echo "$MCP_PUBLISHER_SHA256  $RUNNER_TEMP/mcp-publisher.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/mcp-publisher.tar.gz" -C "$RUNNER_TEMP" mcp-publisher
+          "$RUNNER_TEMP/mcp-publisher" validate server.json
       - name: Check for known vulnerabilities
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
@@ -122,6 +133,8 @@ jobs:
           test "$code" = 401
           sleep 6
           test "$(docker inspect --format '{{.State.Health.Status}}' smoke)" = healthy
+          # The MCP Registry checks this label to confirm the image belongs to the server.
+          test "$(docker inspect --format '{{index .Config.Labels "io.modelcontextprotocol.server.name"}}' hive-mcp:ci)" = "$(jq -r .name server.json)"
           docker logs smoke
           docker rm -f smoke
 

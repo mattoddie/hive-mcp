@@ -1,6 +1,7 @@
 # Publishing a GitHub release (tag vX.Y.Z) builds the Docker image for
 # amd64 and arm64 and pushes it to ghcr.io/<owner>/hive-mcp, then builds the
-# MCP Bundles for Claude Desktop and attaches them to the release.
+# MCP Bundles for Claude Desktop and attaches them to the release. For stable
+# releases it then publishes server.json to the official MCP Registry.
 # See docs/releasing.md.
 name: Release
 
@@ -18,6 +19,9 @@ jobs:
   image:
     name: Build and push image
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      stable: ${{ steps.version.outputs.stable }}
     permissions:
       contents: write # append image details to the release notes
       packages: write # push to ghcr.io
@@ -198,3 +202,79 @@ jobs:
             echo "| Linux | \`hive-mcp-$version-linux-amd64.mcpb\`, \`hive-mcp-$version-linux-arm64.mcpb\` |"
           } >> notes.md
           gh release edit "$TAG" --notes-file notes.md
+
+  registry:
+    name: Publish to the MCP Registry
+    # After the image and the bundles: the registry checks the image's
+    # io.modelcontextprotocol.server.name label, and server.json lists the
+    # bundles with their SHA-256s. Pre-releases aren't published.
+    needs: [image, mcpb]
+    if: needs.image.outputs.stable == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # download the bundles from the release
+      id-token: write # log in to the registry with GitHub OIDC
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      VERSION: ${{ needs.image.outputs.version }}
+      # Pinned: bump both together from the release's checksums file,
+      # https://github.com/modelcontextprotocol/registry/releases
+      MCP_PUBLISHER_VERSION: v1.8.1
+      MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/mcp-publisher.tar.gz" \
+            "https://github.com/modelcontextprotocol/registry/releases/download/$MCP_PUBLISHER_VERSION/mcp-publisher_linux_amd64.tar.gz"
+          echo "$MCP_PUBLISHER_SHA256  $RUNNER_TEMP/mcp-publisher.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/mcp-publisher.tar.gz" -C "$RUNNER_TEMP" mcp-publisher
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: Stamp the version, image and bundles into server.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$TAG" --pattern '*.mcpb' --dir "$RUNNER_TEMP/bundles"
+          (cd "$RUNNER_TEMP/bundles" && sha256sum -- *.mcpb) > "$RUNNER_TEMP/sha256sums"
+          jq --arg v "$VERSION" --rawfile sums "$RUNNER_TEMP/sha256sums" '
+            ($sums | split("\n") | map(select(. != "") | split("  ") | {key: .[1], value: .[0]}) | from_entries) as $sha
+            | .repository.url as $repo
+            | .version = $v
+            | .packages |= map(
+                if .registryType == "oci" then
+                  .identifier |= sub(":[^:/]+$"; ":" + $v)
+                elif .registryType == "mcpb" then
+                  (.identifier | capture("-(?<p>[a-z]+-[a-z0-9]+)\\.mcpb$").p) as $p
+                  | "hive-mcp-\($v)-\($p).mcpb" as $f
+                  | .identifier = "\($repo)/releases/download/v\($v)/\($f)"
+                  | .fileSha256 = ($sha[$f] // error("\($f) is not attached to the release"))
+                else . end)
+            | if ([.packages[] | select(.registryType == "mcpb")] | length) != ($sha | length)
+              then error("the release has \($sha | length) bundles, but server.json lists a different number") else . end
+          ' server.json > "$RUNNER_TEMP/server.json"
+          mv "$RUNNER_TEMP/server.json" server.json
+          cat server.json
+          mcp-publisher validate server.json
+
+      - name: Publish
+        run: |
+          # The registry refuses to publish a version twice, so a re-run after
+          # a successful publish has nothing to do.
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://registry.modelcontextprotocol.io/v0/servers/$(jq -r '.name | @uri' server.json)/versions/$VERSION")
+          if [ "$code" = 200 ]; then
+            echo "Version $VERSION is already in the MCP Registry."
+            exit 0
+          fi
+          mcp-publisher login github-oidc
+          mcp-publisher publish server.json
+          {
+            echo "### Published to the MCP Registry"
+            echo
+            echo "\`$(jq -r .name server.json)\` version \`$VERSION\`"
+          } >> "$GITHUB_STEP_SUMMARY"

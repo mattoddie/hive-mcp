@@ -45,7 +45,7 @@ See [docs/development.md](docs/development.md) for the architecture, the login f
    ```sh
    make test         # go test ./...
    make lint         # gofmt and go vet
-   make docs-check   # docs/tools.md and mcpb/manifest.json match the code
+   make docs-check   # docs/tools.md and mcpb/manifest.json match the code, and server.json matches the manifest
    make image        # optional: the image builds and the tests pass inside it
    ```
 
