@@ -29,7 +29,7 @@ make test           # runs all tests against a mock Hive
 | `make test` | `go test ./...` |
 | `make lint` | Fail if any file needs `gofmt`, then run `go vet ./...` |
 | `make docs` | Regenerate [`docs/tools.md`](tools.md) and the tools and prompts in [`mcpb/manifest.json`](../mcpb/manifest.json) from the tool definitions |
-| `make docs-check` | Fail if either is out of date (CI runs this) |
+| `make docs-check` | Fail if either is out of date, or if `server.json` (the MCP Registry entry) doesn't match the manifest's settings (CI runs this) |
 | `make image` | Build the Docker image as `hive-mcp:$(VERSION)` |
 | `make mcpb` | Build the Claude Desktop bundles, one per OS and architecture, in `dist/`. See [Releasing](releasing.md#about-the-bundles). |
 

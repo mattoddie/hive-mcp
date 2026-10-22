@@ -25,7 +25,8 @@ LABEL org.opencontainers.image.title="hive-mcp" \
       org.opencontainers.image.description="Unofficial MCP server for Hive smart heating" \
       org.opencontainers.image.source="https://github.com/mattoddie/hive-mcp" \
       org.opencontainers.image.documentation="https://hive-mcp.mattoddie.dev/docs/" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="MIT" \
+      io.modelcontextprotocol.server.name="io.github.mattoddie/hive-mcp"
 COPY --from=build /out/hive-mcp /hive-mcp
 # The login lives here (tokens and the remembered device): mode 0700, owned by
 # nonroot, which a new named volume copies. Mount a volume so it survives restarts.

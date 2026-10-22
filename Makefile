@@ -24,6 +24,7 @@ docs:
 docs-check:
 	go run ./cmd/gen-tool-docs -check
 	go run ./cmd/mcpb manifest -check
+	go run ./cmd/mcpb registry
 
 image:
 	docker build --build-arg VERSION=$(VERSION) -t hive-mcp:$(VERSION) .

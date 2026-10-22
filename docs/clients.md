@@ -17,6 +17,7 @@ In the examples below, replace `<docker-host>` with the machine running the cont
 - [Cursor](#cursor)
 - [OpenAI Codex CLI](#openai-codex-cli)
 - [Other clients](#other-clients)
+- [From the MCP Registry](#from-the-mcp-registry)
 - [stdio mode](#stdio-mode)
 
 ## Claude Code
@@ -202,6 +203,15 @@ If your client only supports stdio, you have two options. You can use [stdio mod
   "args": ["-y", "mcp-remote", "http://<docker-host>:8080/mcp", "--header", "Authorization: Bearer <token>"]
 }
 ```
+
+## From the MCP Registry
+
+hive-mcp is listed in the official [MCP Registry](https://registry.modelcontextprotocol.io) as **`io.github.mattoddie/hive-mcp`**. Clients that can install servers from the registry offer two packages:
+
+- **The Docker image** (`ghcr.io/mattoddie/hive-mcp`) in [stdio mode](#stdio-mode), with the login kept in the `hive-data` volume. The client asks for your Hive email and password, and the same settings as the Claude Desktop extension. To log in, either keep *HIVE_ALLOW_LOGIN_TOOLS* on and ask the assistant to "log in to Hive", or run `hive-mcp login` against the same volume once (see below).
+- **The MCP Bundles** (`.mcpb`), one for each OS and processor, as for [Claude Desktop](#claude-desktop).
+
+Each release is published to the registry by the release workflow, so the registry always offers the latest stable version.
 
 ## stdio mode
 

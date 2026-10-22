@@ -1,11 +1,12 @@
 # Releasing
 
-Releases are driven by **GitHub releases**. Publishing a release with a tag like `v1.2.3` triggers the [Release workflow](../.github/workflows/release.yml). That workflow builds the Docker image for `linux/amd64` and `linux/arm64` and pushes it to `ghcr.io/mattoddie/hive-mcp`. It then builds the MCP Bundles (`.mcpb`) for Claude Desktop and attaches them to the release. Nothing is published by merging to `main` alone.
+Releases are driven by **GitHub releases**. Publishing a release with a tag like `v1.2.3` triggers the [Release workflow](../.github/workflows/release.yml). That workflow builds the Docker image for `linux/amd64` and `linux/arm64` and pushes it to `ghcr.io/mattoddie/hive-mcp`. It then builds the MCP Bundles (`.mcpb`) for Claude Desktop and attaches them to the release, and for stable releases publishes the new version to the official [MCP Registry](https://registry.modelcontextprotocol.io). Nothing is published by merging to `main` alone.
 
 - [Versioning](#versioning)
 - [Release checklist](#release-checklist)
 - [Pre-releases](#pre-releases)
 - [What the workflow does](#what-the-workflow-does)
+- [The MCP Registry](#the-mcp-registry)
 - [If something goes wrong](#if-something-goes-wrong)
 - [Repository setup](#repository-setup)
 
@@ -37,8 +38,8 @@ The version comes **from the tag**. There's no version file in the repository: b
 
    Or in the web UI: **Releases → Draft a new release → Choose a tag → type `v1.2.0` → Create new tag on publish**, target `main`. Click **Generate release notes**, edit them as needed, then **Publish release**.
 
-4. **Watch the workflow.** Open **Actions → Release**. It takes a few minutes. When it finishes, the release notes gain a *Container image* section with the pull command, digest and tags, and a *Claude Desktop* section listing the bundles, which are attached as release assets.
-5. **Check the image:** `docker pull ghcr.io/mattoddie/hive-mcp:1.2.0`, then `docker run --rm ghcr.io/mattoddie/hive-mcp:1.2.0 version`. If you can, install the bundle for your computer in Claude Desktop too.
+4. **Watch the workflow.** Open **Actions → Release**. It takes a few minutes. When it finishes, the release notes gain a *Container image* section with the pull command, digest and tags, and a *Claude Desktop* section listing the bundles, which are attached as release assets. For a stable release, the *Publish to the MCP Registry* job then lists the version in the registry.
+5. **Check the image:** `docker pull ghcr.io/mattoddie/hive-mcp:1.2.0`, then `docker run --rm ghcr.io/mattoddie/hive-mcp:1.2.0 version`. If you can, install the bundle for your computer in Claude Desktop too. Check the registry entry too: `curl -s "https://registry.modelcontextprotocol.io/v0/servers/io.github.mattoddie%2Fhive-mcp/versions/latest" | jq .server.version`.
 
 Release notes are generated from merged PR titles and grouped by label. The groups are set in [`.github/release.yml`](../.github/release.yml). Label PRs `breaking`, `enhancement`, `new-tool`, `bug`, `compatibility`, `documentation` or `dependencies` to sort them, or `skip-changelog` to leave a PR out.
 
@@ -50,7 +51,7 @@ To test a release candidate, use a pre-release tag and tick **Set as a pre-relea
 gh release create v1.3.0-rc.1 --target main --prerelease --generate-notes
 ```
 
-Pre-releases are published only under their exact version (`ghcr.io/mattoddie/hive-mcp:1.3.0-rc.1`). They never move `latest`, `1` or `1.3`.
+Pre-releases are published only under their exact version (`ghcr.io/mattoddie/hive-mcp:1.3.0-rc.1`). They never move `latest`, `1` or `1.3`. They aren't published to the MCP Registry.
 
 ## What the workflow does
 
@@ -63,6 +64,7 @@ Pre-releases are published only under their exact version (`ghcr.io/mattoddie/hi
 | Supply chain | Attaches an SBOM and SLSA provenance to the image, and pushes a signed build provenance attestation (`gh attestation verify`). |
 | Release notes | Appends the pull command, digest and tags. |
 | MCP Bundles | After the image, runs `make mcpb VERSION=X.Y.Z`: one `hive-mcp-X.Y.Z-<os>-<arch>.mcpb` for each of `darwin`, `windows` and `linux` on `amd64` and `arm64`. It validates each manifest with the official `@anthropic-ai/mcpb` CLI (pinned in the workflow), attests their build provenance, uploads them to the release and lists them in the notes. |
+| MCP Registry | Stable releases only, after the image and the bundles. Stamps the version, the image tag and the bundles' SHA-256s into [`server.json`](../server.json), then publishes it with `mcp-publisher`, logging in with GitHub OIDC. See [The MCP Registry](#the-mcp-registry). |
 
 ### About the bundles
 
@@ -72,9 +74,51 @@ There's one bundle per OS and architecture because a manifest can only choose th
 
 The bundles aren't signed. The macOS binaries carry the Go linker's ad-hoc signature, which Apple silicon requires, but they aren't signed with a Developer ID or notarised, so macOS may ask the user to allow them (see [Claude Desktop](clients.md#if-it-doesnt-start)). `mcpb sign` can add a signature to the bundle itself, but that needs a code-signing certificate and isn't set up.
 
+## The MCP Registry
+
+hive-mcp is listed in the official [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.mattoddie/hive-mcp`. The entry is [`server.json`](../server.json) at the root of the repository. It describes two kinds of package:
+
+- **The Docker image**, run in stdio mode: `MCP_TRANSPORT` is fixed to `stdio`, the login lives in the `hive-data` volume, and the variables a user sets match the Claude Desktop extension's settings.
+- **The six MCP Bundles**, one for each OS and processor. The registry can't say which platform a bundle is for, but each file name ends in `<os>-<arch>.mcpb`, so all six are listed.
+
+The committed file carries the `0.0.0-dev` placeholder version, like the bundle manifest, with placeholder SHA-256s. The release job fills in the real values, so there's nothing to edit by hand for a release.
+
+The registry proves the image belongs to us through its `io.modelcontextprotocol.server.name` label (set in the [Dockerfile](../Dockerfile)), and the `io.github.mattoddie/` namespace through the workflow's GitHub OIDC token. No secrets are needed.
+
+**Keeping it in step.** `make docs-check` (run by CI) fails if `server.json`'s environment variables, defaults, and required and secret flags differ from the bundle manifest's settings, so change both together. CI also checks `server.json` with `mcp-publisher validate` and checks the image's label.
+
+**The `mcp-publisher` version** is pinned, with its SHA-256, in both [`release.yml`](../.github/workflows/release.yml) and [`ci.yml`](../.github/workflows/ci.yml). To update it, take the new version and the `mcp-publisher_linux_amd64.tar.gz` line from the `registry_<version>_checksums.txt` file on [its release page](https://github.com/modelcontextprotocol/registry/releases), and change both files together. If the registry moves to a new `server.json` schema, update `$schema` too, following the [schema changelog](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/CHANGELOG.md).
+
+### Re-running the registry step
+
+If only the *Publish to the MCP Registry* job failed, open the run under **Actions → Release** and choose **Re-run failed jobs**. The image and the bundles are already published, so only this job runs again. A version can only be published once: if it's already in the registry, the job says so and stops.
+
+### Publishing by hand
+
+If the job can't be made to work, publish from your own machine. You need to be an owner of the `mattoddie` GitHub organisation.
+
+1. Install `mcp-publisher` from its [releases](https://github.com/modelcontextprotocol/registry/releases) (check the SHA-256 against the release's checksums file).
+2. Fill in `server.json` for the release, for example `1.2.0`: set `version` to `1.2.0`, the image tag to `ghcr.io/mattoddie/hive-mcp:1.2.0`, and each bundle's URL and `fileSha256`:
+
+   ```sh
+   gh release download v1.2.0 --pattern '*.mcpb' --dir /tmp/bundles
+   sha256sum /tmp/bundles/*.mcpb
+   ```
+
+   The release workflow's *Stamp* step does all of this with `jq`: you can run its commands as they are with `TAG=v1.2.0`, `VERSION=1.2.0` and `RUNNER_TEMP` (an empty directory) set.
+3. Check, log in and publish:
+
+   ```sh
+   mcp-publisher validate server.json
+   mcp-publisher login github     # opens a browser to authorise
+   mcp-publisher publish server.json
+   ```
+
+4. Don't commit the stamped `server.json`: `main` keeps the placeholders.
+
 ## If something goes wrong
 
-- **The workflow failed** for a transient reason: re-run it from the Actions tab. It's safe to re-run, and it pushes the same tags again.
+- **The workflow failed** for a transient reason: re-run it from the Actions tab. It's safe to re-run, and it pushes the same tags again. For the registry step, see [Re-running the registry step](#re-running-the-registry-step).
 - **The release was wrong** (bad code or wrong tag): don't move or reuse a published tag, because people may already have pulled it. Fix the problem on `main` and publish the next patch version. You can delete the bad GitHub release and mark it as such in the changelog, but leave the image tag alone.
 - **Wrong tag format** (e.g. `1.2.0` without the `v`): delete the release and tag (`gh release delete 1.2.0 --cleanup-tag`) and publish again with the right tag.
 

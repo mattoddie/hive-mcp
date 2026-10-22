@@ -52,6 +52,8 @@ Ask about your home in plain English. The assistant picks from **24 tools** to l
 
 **Using Claude Desktop?** Skip Docker: download the extension bundle (`.mcpb`) for your computer from the [latest release](https://github.com/mattoddie/hive-mcp/releases/latest), open it to install, fill in your Hive email and password, and ask Claude to *"log in to Hive"*. See [Claude Desktop](docs/clients.md#claude-desktop).
 
+hive-mcp is listed in the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.mattoddie/hive-mcp`, so clients that browse the registry can install it (the Docker image in stdio mode, or the bundle). See [From the MCP Registry](docs/clients.md#from-the-mcp-registry).
+
 Otherwise, you need Docker, a Hive account that works in the Hive app, the phone that gets your Hive text messages, and an MCP client such as [Claude Code](https://claude.com/claude-code).
 
 **1. Set up the server.**

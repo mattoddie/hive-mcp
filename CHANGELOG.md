@@ -6,6 +6,10 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+### Added
+
+- hive-mcp is published to the official [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.mattoddie/hive-mcp`, with the Docker image (run in stdio mode) and the MCP Bundles. Each stable release publishes the new version automatically. See [From the MCP Registry](docs/clients.md#from-the-mcp-registry).
+
 ## [0.3.0] - 2026-10-22
 
 ### Added

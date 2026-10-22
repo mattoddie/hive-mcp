@@ -6,6 +6,10 @@
 //	    way the manifest's default settings start it. With -check, fail instead
 //	    if the committed manifest is out of date.
 //
+//	go run ./cmd/mcpb registry
+//	    Check that server.json (the MCP Registry entry) declares the same
+//	    environment variables, defaults and flags as the manifest.
+//
 //	go run ./cmd/mcpb pack -version 1.2.3 -goos darwin -binary path/to/hive-mcp -o out.mcpb
 //	    Write a bundle for one platform: the manifest stamped with the version
 //	    and platform, the icon, the licence and the binary.
@@ -35,6 +39,7 @@ import (
 
 const usage = `Usage:
   mcpb manifest [-check] [-f mcpb/manifest.json]
+  mcpb registry [-f server.json] [-m mcpb/manifest.json]
   mcpb pack -version X.Y.Z -goos darwin|windows|linux -binary FILE -o OUT.mcpb [-dir mcpb] [-license LICENSE]
 `
 
@@ -47,6 +52,8 @@ func main() {
 	switch os.Args[1] {
 	case "manifest":
 		err = manifestCmd(os.Args[2:])
+	case "registry":
+		err = registryCmd(os.Args[2:])
 	case "pack":
 		err = packCmd(os.Args[2:])
 	default:

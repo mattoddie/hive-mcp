@@ -1,0 +1,141 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.mattoddie/hive-mcp",
+  "title": "Hive heating",
+  "description": "Check and control Hive smart heating: thermostats, radiator valves, hot water and holiday mode",
+  "repository": {
+    "url": "https://github.com/mattoddie/hive-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://hive-mcp.mattoddie.dev",
+  "version": "0.0.0-dev",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/mattoddie/hive-mcp:0.0.0-dev",
+      "runtimeHint": "docker",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "-i"
+        },
+        {
+          "type": "named",
+          "name": "--rm"
+        },
+        {
+          "type": "named",
+          "name": "-v",
+          "description": "Docker volume for the login (tokens and the remembered device), so it survives restarts. Use the same volume for `hive-mcp login`.",
+          "isRequired": true,
+          "default": "hive-data:/data"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "MCP_TRANSPORT",
+          "description": "Serve MCP over stdio (the image defaults to HTTP).",
+          "value": "stdio"
+        },
+        {
+          "name": "HIVE_USERNAME",
+          "description": "The email address you log in to the Hive app with.",
+          "isRequired": true
+        },
+        {
+          "name": "HIVE_PASSWORD",
+          "description": "Your Hive password, used to log in and to log in again by itself as a remembered device.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "HIVE_ALLOW_LOGIN_TOOLS",
+          "description": "Let the assistant log in for you with an SMS code (hive_auth_start and hive_auth_complete).",
+          "format": "boolean",
+          "default": "true",
+          "choices": [
+            "true",
+            "false"
+          ]
+        },
+        {
+          "name": "HIVE_ALLOW_WRITES",
+          "description": "Allow changes to your home: heating, boosts, hot water, holiday mode, plugs and lights. Off means read-only.",
+          "format": "boolean",
+          "default": "false",
+          "choices": [
+            "true",
+            "false"
+          ]
+        },
+        {
+          "name": "HIVE_MAX_TEMP",
+          "description": "The highest heating target the assistant may set, in °C: 5 to 32 in steps of 0.5.",
+          "format": "number",
+          "default": "25"
+        },
+        {
+          "name": "HIVE_TOOLSETS",
+          "description": "Optional comma-separated toolsets to expose fewer tools, e.g. home,heating,hotwater. Empty means all but raw.",
+          "placeholder": "home,heating,hotwater"
+        },
+        {
+          "name": "HIVE_AUDIT_LOG",
+          "description": "Optional audit log of every change and login: stderr, or a file on the volume such as /data/audit.jsonl.",
+          "placeholder": "/data/audit.jsonl"
+        }
+      ]
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/mattoddie/hive-mcp/releases/download/v0.0.0-dev/hive-mcp-0.0.0-dev-darwin-arm64.mcpb",
+      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transport": {
+        "type": "stdio"
+      }
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/mattoddie/hive-mcp/releases/download/v0.0.0-dev/hive-mcp-0.0.0-dev-darwin-amd64.mcpb",
+      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transport": {
+        "type": "stdio"
+      }
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/mattoddie/hive-mcp/releases/download/v0.0.0-dev/hive-mcp-0.0.0-dev-windows-amd64.mcpb",
+      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transport": {
+        "type": "stdio"
+      }
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/mattoddie/hive-mcp/releases/download/v0.0.0-dev/hive-mcp-0.0.0-dev-windows-arm64.mcpb",
+      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transport": {
+        "type": "stdio"
+      }
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/mattoddie/hive-mcp/releases/download/v0.0.0-dev/hive-mcp-0.0.0-dev-linux-amd64.mcpb",
+      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transport": {
+        "type": "stdio"
+      }
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/mattoddie/hive-mcp/releases/download/v0.0.0-dev/hive-mcp-0.0.0-dev-linux-arm64.mcpb",
+      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
