@@ -105,6 +105,9 @@ func serve() error {
 			login += " (remembered device)"
 		}
 	}
+	if cfg.Tools.AuditLog != "" {
+		writes += ", audit log " + cfg.Tools.AuditLog
+	}
 	log.Printf("hive-mcp %s: %s, auth %s, writes %s, toolsets %d, transport %s", tools.Version, cfg.Hive.APIURL, login, writes, len(cfg.Tools.Toolsets), cfg.Transport)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

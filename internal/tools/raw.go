@@ -27,7 +27,8 @@ func registerRaw(c *Context) {
 		Toolset: "raw", Name: "hive_api_request", Title: "Raw Hive API request",
 		Description: desc,
 		ReadOnly:    boolPtr(!c.AllowWrites), Destructive: c.AllowWrites,
-		Enums: map[string][]string{"method": {"GET", "POST", "PUT", "DELETE"}},
+		Changes: rawRequestChanges,
+		Enums:   map[string][]string{"method": {"GET", "POST", "PUT", "DELETE"}},
 	}, func(ctx context.Context, a rawRequestArgs) (any, error) {
 		method := strings.ToUpper(a.Method)
 		if method == "" {

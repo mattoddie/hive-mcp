@@ -5,10 +5,12 @@ hive-mcp is configured entirely through environment variables. With Docker Compo
 - [Hive account and login](#hive-account-and-login)
 - [How login works](#how-login-works)
 - [What the assistant may do](#what-the-assistant-may-do)
+- [Audit log](#audit-log)
 - [Caching and timeouts](#caching-and-timeouts)
 - [MCP transport](#mcp-transport)
 - [Docker secrets (`_FILE` variables)](#docker-secrets-_file-variables)
 - [Choosing toolsets](#choosing-toolsets)
+- [Keeping the tool list small](#keeping-the-tool-list-small)
 - [Advanced: Hive's endpoints](#advanced-hives-endpoints)
 - [Example configurations](#example-configurations)
 
@@ -66,6 +68,8 @@ Running `login` again later doesn't send a code if the server is still a remembe
 
 Boolean variables accept `true`/`false`, `1`/`0`, `yes`/`no` and `on`/`off`. Anything else stops the server with an error.
 
+A variable set to an empty value counts as unset and gets its default. So does one set to exactly `${user_config.<key>}`, which is how Claude Desktop passes an [extension setting](clients.md#claude-desktop) that was left empty.
+
 The [tool reference](tools.md) labels every tool with the setting it needs:
 
 | Label | Registered when |
@@ -77,6 +81,41 @@ The [tool reference](tools.md) labels every tool with the setting it needs:
 Tools that aren't allowed are **not registered at all**. The assistant can't see them, so it can't call them or be talked into calling them. After changing `HIVE_ALLOW_WRITES` or `HIVE_ALLOW_LOGIN_TOOLS`, restart the server and reconnect your MCP client so it fetches the new tool list.
 
 Unlike an OAuth service, Hive's login has no read-only scope: whatever the switch says, the login itself can do anything the Hive app can. The switch is what keeps the assistant read-only. See [Security](security.md).
+
+## Audit log
+
+| Variable | Default | Description |
+|---|---|---|
+| `HIVE_AUDIT_LOG` | (off) | Record every call of a tool that changes things. A file path appends JSON Lines to that file, which is created with mode `0600` if it doesn't exist. `stderr` writes the lines to standard error, next to the server's other logs. |
+
+Each line is one call of a write tool (🟠 in the [tool reference](tools.md)), a login tool (`hive_auth_start` or `hive_auth_complete`), or `hive_api_request` with a method other than `GET`. Calls that failed, and calls refused for invalid arguments, are logged too. Read tools aren't.
+
+```json
+{"time":"2026-10-22T08:14:03.120Z","tool":"hive_boost_heating","arguments":{"minutes":60,"temperature":21,"zone":"Living room"},"outcome":"ok"}
+```
+
+| Field | Meaning |
+|---|---|
+| `time` | When the call finished, in UTC (RFC 3339). |
+| `tool` | The tool name, such as `hive_boost_heating`. |
+| `arguments` | The arguments as the assistant sent them, with the SMS code, passwords, tokens and secrets `[redacted]`. |
+| `outcome` | `ok` or `error`. |
+| `error` | The error message, when `outcome` is `error`. |
+
+The server checks at startup that it can write to the file, and refuses to start if the directory doesn't exist or isn't writable. A write that fails later doesn't stop the tool call: the server logs one warning to standard error and carries on. The file is opened for each entry, so you can rotate or delete it while the server runs.
+
+In Docker, put the file on a volume:
+
+```yaml
+services:
+  hive-mcp:
+    environment:
+      HIVE_AUDIT_LOG: /audit/hive-mcp.jsonl
+    volumes:
+      - ./audit:/audit
+```
+
+Create the directory first and let UID 65532 write to it, for example `mkdir audit && sudo chown 65532 audit`. `HIVE_AUDIT_LOG=stderr` needs no volume: the lines appear in `docker compose logs`.
 
 ## Caching and timeouts
 
@@ -145,14 +184,26 @@ Every tool's name, description and argument schema is sent to the model, which u
 | `devices` | Smart plugs, lights and sensors |
 | `raw` | Any API path. Handy, but gives broad access, so it isn't part of `all`: list it by name to enable it. The account's user profile (name, email, phone, address) is redacted from its output. |
 
-The [tool reference](tools.md) lists the tools in each toolset. Some suggested sets:
+The [tool reference](tools.md) lists the tools in each toolset, and [Keeping the tool list small](#keeping-the-tool-list-small) suggests some combinations.
 
-| Goal | `HIVE_TOOLSETS` |
-|---|---|
-| Heating and hot water only | `home,heating,hotwater` |
-| Lights and plugs only | `home,devices` |
-| Everything except the raw API tool (default) | `all` |
-| Everything, including the raw API tool | `all,raw` |
+## Keeping the tool list small
+
+Most MCP clients send every tool's name, description and argument schema to the model with each request. hive-mcp's list is small by MCP standards: about 7 KB for the 10 read-only tools of the default `all`, and 16 KB for 21 tools with writes on. Even so, a narrower list leaves more room for your conversation, helps the model pick the right tool, and keeps the rest out of its reach.
+
+Clients with their own tool search, such as Claude Code, load tool definitions only when the model needs them, so they handle the full list fine. `HIVE_TOOLSETS` still limits what the model can reach.
+
+The sizes are the `tools/list` result the client receives, measured by starting the server. "With writes" is `HIVE_ALLOW_WRITES=true`.
+
+| Goal | `HIVE_TOOLSETS` | Read-only | With writes |
+|---|---|---:|---:|
+| Overview, devices and holiday mode | `home` | 4 tools, 3 KB | 6 tools, 4 KB |
+| Heating only | `home,heating` | 7 tools, 5 KB | 13 tools, 10 KB |
+| Heating and hot water | `home,heating,hotwater` | 9 tools, 6 KB | 18 tools, 13 KB |
+| Lights and plugs | `home,devices` | 5 tools, 3 KB | 9 tools, 6 KB |
+| Everything except the raw API tool (default) | `all` | 10 tools, 7 KB | 21 tools, 16 KB |
+| Everything, including the raw API tool | `all,raw` | 11 tools, 8 KB | 22 tools, 17 KB |
+
+The login tools (`HIVE_ALLOW_LOGIN_TOOLS=true`) add 2 tools and about 1.4 KB to any of these.
 
 ## Advanced: Hive's endpoints
 

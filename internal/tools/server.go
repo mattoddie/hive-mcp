@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -37,7 +38,10 @@ func instructions(opts config.Tools) string {
 // registered, when non-nil, is filled with each tool's toolset and gate.
 func NewServer(client *hive.Client, opts config.Tools, registered map[string]Info) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: Name, Version: Version}, &mcp.ServerOptions{Instructions: instructions(opts)})
-	c := &Context{Server: s, Client: client, Tools: opts, Registered: registered}
+	c := &Context{Server: s, Client: client, Tools: opts, Registered: registered, audited: map[string]func(json.RawMessage) bool{}}
+	if audit := newAuditLog(opts.AuditLog); audit != nil {
+		s.AddReceivingMiddleware(audit.middleware(c.audited))
+	}
 	registerHome(c)
 	registerHeating(c)
 	registerHotWater(c)

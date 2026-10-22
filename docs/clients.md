@@ -58,7 +58,51 @@ Read the notes under [stdio mode](#stdio-mode) first.
 
 ## Claude Desktop
 
-Claude Desktop starts local MCP servers over stdio, so use [stdio mode](#stdio-mode). Open **Settings → Developer → Edit Config** and add:
+The easiest way is the **extension bundle**: a single `.mcpb` file that installs hive-mcp into Claude Desktop with a settings form. It needs no Docker, no service and no token, because Claude Desktop runs the server itself over stdio.
+
+### Install the extension
+
+1. Open the [latest release](https://github.com/mattoddie/hive-mcp/releases/latest) and download the bundle for your computer:
+
+   | Computer | Bundle |
+   |---|---|
+   | Mac with Apple silicon (M1 and later) | `hive-mcp-<version>-darwin-arm64.mcpb` |
+   | Mac with an Intel processor | `hive-mcp-<version>-darwin-amd64.mcpb` |
+   | Windows on x64 (most PCs) | `hive-mcp-<version>-windows-amd64.mcpb` |
+   | Windows on Arm | `hive-mcp-<version>-windows-arm64.mcpb` |
+
+   There are Linux bundles too (`linux-amd64`, `linux-arm64`) for other clients that install MCP Bundles.
+
+2. Double-click the file, or drag it onto **Settings → Extensions** in Claude Desktop, and click **Install**.
+3. Fill in the settings and turn the extension on. The tools appear under the tools (🔨) menu, and the prompts under the **+** menu. You can allow or block each tool separately there.
+4. **Log in once.** Have your phone to hand and ask Claude to *"log in to Hive"*. It calls `hive_auth_start`, Hive texts you a code, and you tell Claude the code so it can call `hive_auth_complete`. The server is then a remembered device and logs in again by itself, so you can turn **Allow logging in from Claude** off afterwards if you like.
+
+To update, install the bundle from a newer release the same way. The login is kept.
+
+### Settings
+
+| Setting | Variable | What to enter |
+|---|---|---|
+| **Hive email address** (required) | `HIVE_USERNAME` | The email address you log in to the Hive app with. |
+| **Hive password** (required) | `HIVE_PASSWORD` | Your Hive password. The server needs it to log in, and later to log in again by itself without an SMS code. |
+| **Allow logging in from Claude** | `HIVE_ALLOW_LOGIN_TOOLS` | On by default in the extension, so you can log in without a terminal. It registers `hive_auth_start` and `hive_auth_complete`, which can make Hive text you a code. |
+| **Allow changes** | `HIVE_ALLOW_WRITES` | Off by default, which keeps the assistant read-only. Read [Security](security.md) before turning it on. |
+| **Maximum temperature (°C)** | `HIVE_MAX_TEMP` | The highest heating target Claude may set. 25 by default. |
+| **Toolsets** | `HIVE_TOOLSETS` | Optional, such as `home,heating,hotwater`. Empty means every toolset except `raw`. See [Keeping the tool list small](configuration.md#keeping-the-tool-list-small). |
+| **Audit log file** | `HIVE_AUDIT_LOG` | Optional full path to a file, such as `/Users/you/hive-mcp-audit.jsonl`, that records every change Claude makes and every login it starts. The folder must exist; the file is created. `stderr` writes the entries to the extension's log instead. Off when empty. See [Audit log](configuration.md#audit-log). |
+
+Settings you leave empty use their defaults, as described in [Configuration](configuration.md). The login is saved in `~/.config/hive-mcp/tokens.json` (`%USERPROFILE%\.config\hive-mcp\tokens.json` on Windows), the same file `hive-mcp login` writes, so a login made with the command-line binary works for the extension too.
+
+### If it doesn't start
+
+- **Read the error.** Claude Desktop shows that the extension failed to start. The server's log, which says what's wrong, is in `~/Library/Logs/Claude/` on macOS and `%APPDATA%\Claude\logs\` on Windows, in a file named after the extension.
+- **macOS blocks the server.** The binary in the bundle isn't notarised by Apple. If macOS says it can't check it for malicious software, open **System Settings → Privacy & Security** and click **Open Anyway** next to the message about `hive-mcp`, then turn the extension off and on again.
+- **A password with `$` in it fails to log in.** Some Claude Desktop versions alter setting values that contain `$`. Change the Hive password to one without `$`, or use the Docker setup below with `HIVE_PASSWORD_FILE`.
+- **Tools say the server isn't logged in.** Ask Claude to *"log in to Hive"* (with **Allow logging in from Claude** on). See [Troubleshooting](troubleshooting.md) for SMS code problems.
+
+### Or run it with Docker
+
+If you'd rather run the container image, use [stdio mode](#stdio-mode). Open **Settings → Developer → Edit Config** and add:
 
 ```json
 {

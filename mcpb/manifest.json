@@ -1,0 +1,198 @@
+{
+  "manifest_version": "0.3",
+  "name": "hive-mcp",
+  "display_name": "Hive heating (hive-mcp)",
+  "version": "0.0.0-dev",
+  "description": "Check and control Hive smart heating: thermostats, radiator valves, hot water, holiday mode, plugs and lights.",
+  "long_description": "An open-source MCP server for **Hive**, British Gas's smart heating. Ask about your home in plain English: how warm each room is, what the heating and hot water are doing, which batteries are low. If you allow it, Claude can also boost the heating, set temperatures, switch the hot water on and set holiday mode.\n\n- **Read-only by default.** Changes need *Allow changes*. Every change is checked first: heating targets are capped (25 °C unless you raise *Maximum temperature*), boosts last at most six hours, holiday mode at most 60 days, and settings that last indefinitely need an explicit confirmation.\n- **One SMS code, once.** With *Allow logging in from Claude* on, ask Claude to \"log in to Hive\": Hive texts you a code, you tell Claude, and the server becomes a remembered device that logs in again by itself.\n- **Private.** Passwords, tokens and device secrets never appear in tool output, and the account's personal details are redacted.\n\nhive-mcp is an independent community project, not made, endorsed or supported by Hive, British Gas or Centrica. It uses the same undocumented API as the Hive app.",
+  "author": {
+    "name": "Matt Oddie",
+    "url": "https://github.com/mattoddie"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mattoddie/hive-mcp"
+  },
+  "homepage": "https://hive-mcp.mattoddie.dev",
+  "documentation": "https://hive-mcp.mattoddie.dev/docs/clients/#claude-desktop",
+  "support": "https://github.com/mattoddie/hive-mcp/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "binary",
+    "entry_point": "server/hive-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/server/hive-mcp",
+      "args": [],
+      "env": {
+        "MCP_TRANSPORT": "stdio",
+        "HIVE_USERNAME": "${user_config.username}",
+        "HIVE_PASSWORD": "${user_config.password}",
+        "HIVE_ALLOW_LOGIN_TOOLS": "${user_config.allow_login_tools}",
+        "HIVE_ALLOW_WRITES": "${user_config.allow_writes}",
+        "HIVE_MAX_TEMP": "${user_config.max_temp}",
+        "HIVE_TOOLSETS": "${user_config.toolsets}",
+        "HIVE_AUDIT_LOG": "${user_config.audit_log}"
+      },
+      "platform_overrides": {
+        "win32": {
+          "command": "${__dirname}/server/hive-mcp.exe"
+        }
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "hive_auth_complete",
+      "description": "Finish a login started with hive_auth_start by giving the code Hive texted to the account's phone. This also registers the server as a remembered device, so it won't need a code again."
+    },
+    {
+      "name": "hive_auth_start",
+      "description": "Start logging this server in to Hive with HIVE_USERNAME and HIVE_PASSWORD. If this server is already a remembered device, that's the whole login. Otherwise Hive texts a code to the account's phone: ask the user for it and pass it to hive_auth_complete within about three minutes. Only use this when the user asks to log in or a tool says the server isn't logged in; it sends a real text message. It refuses to send another code within a minute of the last one, and to try again within five minutes of a login Hive refused."
+    },
+    {
+      "name": "hive_auth_status",
+      "description": "Show whether this server is logged in to Hive: the account (with the email address masked), whether this server is a remembered device (so it can log in again without an SMS code), when the current token expires and any login error. Never shows passwords, tokens or device secrets."
+    },
+    {
+      "name": "hive_get_heating",
+      "description": "Show the heating: for each heating zone (a Hive thermostat) and TRV zone (Hive radiator valves), the current temperature, target temperature, mode (schedule, manual, off or boost), boost time left, whether it's calling for heat, what the schedule asks for now and next, and thermostat or valve batteries."
+    },
+    {
+      "name": "hive_get_heating_schedule",
+      "description": "Show a zone's weekly heating schedule: for each day, the periods and the target temperature for each, in the home's local time. Also says what the schedule asks for now and when it next changes."
+    },
+    {
+      "name": "hive_get_holiday_mode",
+      "description": "Show whether holiday mode is set: when it starts and ends and the temperature the heating holds while you're away."
+    },
+    {
+      "name": "hive_get_hot_water",
+      "description": "Show the hot water: whether it's heating now, the mode (schedule, on, off or boost), boost time left, and what the schedule asks for now and next."
+    },
+    {
+      "name": "hive_get_hot_water_schedule",
+      "description": "Show the weekly hot water schedule: for each day, when the hot water is on and off, in the home's local time."
+    },
+    {
+      "name": "hive_get_overview",
+      "description": "A one-call snapshot of the home: every heating zone and TRV zone (current and target temperature, mode, boost, whether it's calling for heat), the hot water, plugs, lights and sensors, holiday mode, and anything that needs attention: low batteries, offline devices and discontinued hardware. A good first call."
+    },
+    {
+      "name": "hive_list_devices",
+      "description": "List the Hive hardware: hub, thermostats, boiler module, radiator valves (TRVs), plugs, bulbs and sensors, with online status, battery level, signal strength, model and firmware. Filter by type, low battery or offline."
+    },
+    {
+      "name": "hive_list_smart_devices",
+      "description": "List Hive smart plugs (on or off, power use), lights (on or off, brightness, colour temperature) and sensors (window and door sensors open or closed, motion sensors), with online status and batteries."
+    },
+    {
+      "name": "hive_list_trvs",
+      "description": "List the Hive radiator valves (TRVs) by zone: each zone's temperature, target and mode, and each valve's battery, signal, online status, calibration, mounting and child lock."
+    }
+  ],
+  "tools_generated": true,
+  "prompts": [
+    {
+      "name": "home_check",
+      "description": "A quick check of the home: temperatures, what the heating and hot water are doing, holiday mode, and any low batteries or offline devices.",
+      "arguments": [],
+      "text": "Check on my home with Hive.\n1. hive_get_overview (fresh: true): heating zones, hot water, plugs, lights, sensors, holiday mode and anything needing attention.\n2. If any radiator valves are listed, hive_list_trvs for their batteries and calibration.\nReport: a one-line verdict, then each room's temperature against its target and what it's doing (schedule, manual, off or boost), the hot water, and a short to-do list (batteries to replace, offline devices, discontinued hardware). Keep healthy things to one line. Don't change anything."
+    },
+    {
+      "name": "warm_up",
+      "description": "Boost the heating to a comfortable temperature for a while, checking the current state first.",
+      "arguments": [
+        "temperature",
+        "minutes",
+        "zone"
+      ],
+      "text": "I'd like to warm the house up to 21 °C for 60 minutes (zone: the main heating zone).\n1. hive_get_heating: check the current temperature, target and mode for that zone. If it's already at or above that temperature, or already boosting, tell me and ask what I want.\n2. Show me what you'll do (zone, temperature, minutes, and what it goes back to afterwards) and wait for my go-ahead.\n3. hive_boost_heating, then confirm the new state."
+    },
+    {
+      "name": "hot_water_now",
+      "description": "Get hot water for a bath or shower: check whether it's already on and boost it if not.",
+      "arguments": [
+        "minutes"
+      ],
+      "text": "I need hot water soon.\n1. hive_get_hot_water: is it already heating, or due on shortly in its schedule?\n2. If it's off and not due on within 15 minutes, boost it for 30 minutes with hive_boost_hot_water. Otherwise tell me when it comes on.\n3. Tell me what you did and when it will go back to normal."
+    },
+    {
+      "name": "going_away",
+      "description": "Set the home up for a trip: holiday mode with a frost-safe temperature, and a check of anything left on.",
+      "arguments": [
+        "leave",
+        "return"
+      ],
+      "text": "I'm going away from now until ${arguments.return}.\n1. hive_get_overview: current heating and hot water, holiday mode, and plugs or lights that are on.\n2. Suggest a holiday temperature (usually 7 to 12 °C to protect pipes; higher if there are pets or plants that need it) and a return time a couple of hours before I'm back, so the house is warm when I arrive.\n3. Show me the plan, including any plugs or lights you'd switch off, and wait for my go-ahead.\n4. hive_set_holiday_mode, then switch off what I agreed to with hive_set_plug or hive_set_light, and confirm."
+    },
+    {
+      "name": "schedule_review",
+      "description": "Review the heating and hot water schedules for comfort and wasted energy, and suggest changes.",
+      "arguments": [],
+      "text": "Review my heating and hot water schedules.\n1. hive_get_heating_schedule for each heating zone and TRV zone (see hive_get_heating for the zones), and hive_get_hot_water_schedule.\n2. Look for: heating on when people are usually out or asleep, very high or low targets, zones that heat at the same time as each other for no reason, long hot water periods, and weekdays and weekends that look copied without thought.\n3. Summarise each schedule in a short table, then suggest specific changes with the energy saving or comfort reason for each.\nDon't change anything: hive-mcp can't edit schedules, so I'll make any changes in the Hive app."
+    }
+  ],
+  "keywords": [
+    "hive",
+    "heating",
+    "thermostat",
+    "hot water",
+    "smart home",
+    "british gas"
+  ],
+  "license": "MIT",
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ]
+  },
+  "user_config": {
+    "username": {
+      "type": "string",
+      "title": "Hive email address",
+      "description": "The email address you log in to the Hive app with.",
+      "required": true
+    },
+    "password": {
+      "type": "string",
+      "title": "Hive password",
+      "description": "Your Hive password. It's needed to log in, and later so the server can log in again by itself (as a remembered device, without another SMS code).",
+      "sensitive": true,
+      "required": true
+    },
+    "allow_login_tools": {
+      "type": "boolean",
+      "title": "Allow logging in from Claude",
+      "description": "Let Claude log in for you: ask it to \"log in to Hive\", and Hive texts a code to your phone for you to pass on. Needed once, unless you've already run `hive-mcp login` on this computer. You can turn it off afterwards.",
+      "default": true
+    },
+    "allow_writes": {
+      "type": "boolean",
+      "title": "Allow changes",
+      "description": "Let Claude change your home: heating temperature and mode, boosts, hot water, holiday mode, plugs and lights. Off means read-only.",
+      "default": false
+    },
+    "max_temp": {
+      "type": "number",
+      "title": "Maximum temperature (°C)",
+      "description": "The highest heating target Claude may set, for any mode, boost or holiday mode. 5 to 32 in steps of 0.5.",
+      "default": 25,
+      "min": 5,
+      "max": 32
+    },
+    "toolsets": {
+      "type": "string",
+      "title": "Toolsets",
+      "description": "Optional comma-separated list to expose fewer tools, e.g. home,heating,hotwater. Empty means all except raw (the raw API tool), which you add by name, e.g. all,raw.",
+      "default": ""
+    },
+    "audit_log": {
+      "type": "string",
+      "title": "Audit log file",
+      "description": "Optional full path to a file, e.g. /Users/you/hive-mcp-audit.jsonl, where every change Claude makes (and every login it starts) is appended as a JSON line. The file is created if it doesn't exist; its folder must exist. stderr writes the lines to Claude Desktop's MCP log instead. Off when left empty.",
+      "default": ""
+    }
+  }
+}

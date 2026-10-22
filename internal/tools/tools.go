@@ -36,6 +36,9 @@ type Context struct {
 	config.Tools
 	// Registered records each registered tool's toolset and gate, for the docs generator.
 	Registered map[string]Info
+	// audited maps each tool whose calls can change things to a test of
+	// whether a call does, for the audit log.
+	audited map[string]func(json.RawMessage) bool
 }
 
 // Info describes a registered tool.
@@ -62,6 +65,10 @@ type Def struct {
 	Enums map[string][]string
 	// Ranges sets the minimum and maximum of number arguments, keyed by argument name.
 	Ranges map[string][2]float64
+	// Changes, for a Read tool that can still change things (the raw tool),
+	// says whether a call with these arguments does, so the audit log records
+	// it. Calls of Write and Login tools are always recorded.
+	Changes func(args json.RawMessage) bool
 }
 
 func boolPtr(b bool) *bool        { return &b }
@@ -153,6 +160,12 @@ func add[In any](c *Context, d Def, h func(ctx context.Context, in In) (any, err
 	})
 	if c.Registered != nil {
 		c.Registered[d.Name] = Info{Toolset: d.Toolset, Gate: d.Gate}
+	}
+	switch {
+	case d.Gate != Read:
+		c.audited[d.Name] = func(json.RawMessage) bool { return true }
+	case d.Changes != nil:
+		c.audited[d.Name] = d.Changes
 	}
 }
 
