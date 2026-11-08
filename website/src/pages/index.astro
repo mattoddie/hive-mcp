@@ -1,11 +1,10 @@
 ---
 import logo from "../../../docs/assets/logo.svg?raw";
 import { prompts, toolsets, totals } from "../lib/tools";
+import { DESCRIPTION as description } from "../lib/llms";
 
 const GITHUB = "https://github.com/mattoddie/hive-mcp";
 const title = "hive-mcp: talk to your Hive heating";
-const description =
-  "An unofficial, open-source MCP server for Hive smart heating. Ask Claude and other AI assistants how warm the house is, and let them boost the heating, put the hot water on or set holiday mode when you allow it. Runs in Docker.";
 
 const toolsetIcons: Record<string, string> = {
   home: "🏠",
@@ -103,6 +102,9 @@ const connectSnippet = `claude mcp add --transport http hive \\
     <meta property="og:description" content={description} />
     <meta property="og:url" content={Astro.site} />
     <meta property="og:image" content={new URL("/og.png", Astro.site)} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={title} />
     <meta name="twitter:card" content="summary_large_image" />
     <script
       type="application/ld+json"
