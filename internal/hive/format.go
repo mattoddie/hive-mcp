@@ -386,7 +386,25 @@ func batterySummary(devs []Obj) (lowest any, details []Obj) {
 	return min, details
 }
 
-func online(o Obj) any { return BoolOrNil(o, "props", "online") }
+// online is the device's online flag, or nil when Hive doesn't know or the
+// flag doesn't mean anything for the device (see NotOnHub).
+func online(o Obj) any {
+	if _, ok := NotOnHub[Str(o, "type")]; ok {
+		return nil
+	}
+	return BoolOrNil(o, "props", "online")
+}
+
+// Offline reports whether Hive says a device is offline.
+func Offline(d Obj) bool { return online(d) == false }
+
+// NotOnHub names device types Hive lists that aren't paired with the hub.
+// Hive reads smart meters through the national smart meter network, so it
+// always marks them offline, even when their readings are coming through.
+var NotOnHub = map[string]string{
+	"smartmetergas":         "read through the smart meter network, not the Hive hub",
+	"smartmeterelectricity": "read through the smart meter network, not the Hive hub",
+}
 
 // boosting reports whether a heating or hot water product is boosting.
 func boosting(p Obj) bool {
@@ -551,6 +569,9 @@ func (n *Nodes) SummarizeDevice(d Obj) Obj {
 	}
 	if zone := Str(d, "state", "zoneName"); zone != "" && zone != Name(d) {
 		o["zone"] = zone
+	}
+	if via, ok := NotOnHub[Str(d, "type")]; ok {
+		o["connection"] = via
 	}
 	return Compact(o)
 }

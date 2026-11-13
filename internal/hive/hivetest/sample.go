@@ -73,7 +73,8 @@ func SampleNodes() map[string]any {
     {"id": "` + LightID + `", "type": "warmwhitelight", "sortOrder": 7, "props": {"online": true, "model": "FWBulb01", "power": "mains"}, "state": {"name": "Hallway"}},
     {"id": "` + TuneableID + `", "type": "tuneablelight", "sortOrder": 8, "props": {"online": true, "model": "TWBulb01UK", "power": "mains"}, "state": {"name": "Living room"}},
     {"id": "` + SensorID + `", "type": "contactsensor", "sortOrder": 12, "props": {"online": true, "model": "DWS003", "power": "battery", "battery": 90}, "state": {"name": "Back door"}},
-    {"id": "keypad-0000-4000-8000-000000000001", "type": "keypad", "sortOrder": 15, "props": {"online": false, "model": "KEYPAD001", "power": "battery", "battery": 0}, "state": {"name": "Keypad"}}
+    {"id": "keypad-0000-4000-8000-000000000001", "type": "keypad", "sortOrder": 15, "props": {"online": false, "model": "KEYPAD001", "power": "battery", "battery": 0}, "state": {"name": "Keypad"}},
+    {"id": "smartmetergas-0000-4000-8000-000000000001", "type": "smartmetergas", "sortOrder": 23, "props": {"capabilities": [], "online": false, "power": "mains", "version": "00000000"}, "state": {"name": "Gas Smart Meter"}}
   ]
 }`
 	var out map[string]any

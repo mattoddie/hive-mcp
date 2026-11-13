@@ -6,6 +6,10 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+### Fixed
+
+- Smart meters are no longer reported as offline. Hive reads them through the smart meter network rather than the hub, so it always marks them offline, and `hive_get_overview` listed them under "needs attention" even when their readings were coming through. `hive_list_devices` now shows them with a `connection` note instead of an online status.
+
 ### Security
 
 - Built with Go 1.27.4, which fixes an HTTP/1 server crash in the standard library's `net/http` (GO-2026-6859).

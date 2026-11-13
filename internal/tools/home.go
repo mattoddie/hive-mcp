@@ -245,7 +245,7 @@ func attention(n *hive.Nodes) []string {
 			out = append(out, name+": discontinued, "+note)
 			continue
 		}
-		if hive.Get(d, "props", "online") == false {
+		if hive.Offline(d) {
 			out = append(out, name+": offline")
 		}
 		if b, ok := hive.Num(d, "props", "battery"); ok && hive.Str(d, "props", "power") != "mains" && b <= hive.LowBattery {
