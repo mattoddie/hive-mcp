@@ -145,7 +145,7 @@ Two rulesets should protect the repository. Create them under **Settings → Rul
 
 ### Immutable releases
 
-[Immutable releases](https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/immutable-releases) should be on (**Settings → General → Releases**). Once a release is published, its assets can't be added, changed or deleted, and its tag can't be moved or reused, even by admins. GitHub also attaches a release attestation (`gh release verify`). That's why the workflow attaches everything to a draft and publishes last.
+[Immutable releases](https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/immutable-releases) are on (**Settings → General → Releases**). Once a release is published, its assets can't be added, changed or deleted, and its tag can't be moved or reused, even by admins. GitHub also attaches a release attestation (`gh release verify`). That's why the workflow attaches everything to a draft and publishes last.
 
 > [!NOTE]
 > Required checks are matched by job name. If you rename a job in [`ci.yml`](../.github/workflows/ci.yml), update the *Protect main* ruleset in the same change. Otherwise pull requests wait forever for a check that never reports.
