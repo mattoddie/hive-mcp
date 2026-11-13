@@ -6,6 +6,10 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+### Added
+
+- Each release now has plain binaries for macOS, Linux and Windows on `amd64` and `arm64`, with a `SHA256SUMS` file and build provenance attestations, so you can run hive-mcp without Docker. See [Running without Docker](docs/deployment.md#running-without-docker).
+
 ### Fixed
 
 - Smart meters are no longer reported as offline. Hive reads them through the smart meter network rather than the hub, so it always marks them offline, and `hive_get_overview` listed them under "needs attention" even when their readings were coming through. `hive_list_devices` now shows them with a `connection` note instead of an online status.

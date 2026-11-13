@@ -12,6 +12,9 @@ This guide takes you from nothing to asking your first question about your Hive 
 
 ## What you need
 
+> [!TIP]
+> **No Docker?** Each release also has plain binaries for macOS, Linux and Windows. See [Running without Docker](deployment.md#running-without-docker) and [connecting a client to the binary](clients.md#without-docker).
+
 - **A Hive account** that you can log in to in the Hive app, with at least one Hive product, such as Hive Active Heating. See [Compatibility](compatibility.md) for the devices hive-mcp knows about.
 - **The phone that receives your Hive text messages.** Hive accounts use two-step verification, so the first login needs a code Hive sends by SMS.
 - **A machine that runs Docker.** This could be a NAS, a home server, a small VM or your laptop. The image supports both `amd64` and `arm64`. If you'd rather not use Docker, there's a single binary too. See [Running without Docker](deployment.md#running-without-docker).
