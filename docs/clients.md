@@ -244,3 +244,30 @@ Tips:
 - **Always pass `-i` and never `-t`** when serving. A TTY corrupts the MCP message stream. (The `login` command is the exception: it needs `-it` so you can type the code.)
 - **Docker on another machine** works too. Set `DOCKER_HOST` in the client's `env`. The volume lives on that machine.
 - **Pin a version** (for example `:1.2.3`) so a new `latest` doesn't surprise you. See [Deployment](deployment.md#image-tags).
+
+### Without Docker
+
+With a [release binary](deployment.md#download-a-release-binary), the client runs it directly. Log in once in a terminal with `hive-mcp login` (see [Run it](deployment.md#run-it)), then use the binary's full path as the command and pass the settings as environment variables. In a JSON client config, that looks like:
+
+```json
+{
+  "mcpServers": {
+    "hive": {
+      "command": "/usr/local/bin/hive-mcp",
+      "env": {
+        "HIVE_USERNAME": "you@example.com",
+        "HIVE_PASSWORD_FILE": "/path/to/hive-password"
+      }
+    }
+  }
+}
+```
+
+The binary uses stdio by default, so there's no `MCP_TRANSPORT` to set, and the login is read from `~/.config/hive-mcp/tokens.json`. In Claude Code:
+
+```sh
+claude mcp add hive \
+  --env HIVE_USERNAME=you@example.com \
+  --env HIVE_PASSWORD_FILE=/path/to/hive-password \
+  -- /usr/local/bin/hive-mcp
+```
