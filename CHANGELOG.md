@@ -6,6 +6,8 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-13
+
 ### Added
 
 - Each release now has plain binaries for macOS, Linux and Windows on `amd64` and `arm64`, with a `SHA256SUMS` file and build provenance attestations, so you can run hive-mcp without Docker. See [Running without Docker](docs/deployment.md#running-without-docker).
@@ -96,7 +98,8 @@ First release, not yet tested against a live Hive account. Hive's API is unoffic
 - Multi-arch distroless Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - A mock Hive for tests (sign-in page, a Cognito that checks SRP proofs, SMS codes and remembered devices, and the API), and documentation including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/hive-mcp/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/mattoddie/hive-mcp/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/mattoddie/hive-mcp/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/mattoddie/hive-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/mattoddie/hive-mcp/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mattoddie/hive-mcp/compare/v0.1.1...v0.2.0
