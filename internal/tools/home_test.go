@@ -29,6 +29,9 @@ func TestOverview(t *testing.T) {
 	if !strings.Contains(att, "Bedroom (trv): battery low (20%)") || !strings.Contains(att, "Keypad (keypad): discontinued") {
 		t.Errorf("attention: %s", att)
 	}
+	if strings.Contains(att, "Smart Meter") { // Hive always marks smart meters offline
+		t.Errorf("smart meter flagged: %s", att)
+	}
 	if res["homes"].([]any)[0].(Obj)["time_zone"] != "Europe/London" {
 		t.Errorf("homes: %v", res["homes"])
 	}
@@ -51,8 +54,12 @@ func toStrings(v any) []string {
 func TestListDevices(t *testing.T) {
 	env := newEnv(t)
 	all := env.obj("hive_list_devices", nil)
-	if all["total"] != 9.0 {
+	if all["total"] != 10.0 {
 		t.Errorf("devices: %v", all["total"])
+	}
+	meter := env.obj("hive_list_devices", map[string]any{"type": "smartmetergas"})["devices"].([]any)[0].(Obj)
+	if _, ok := meter["online"]; ok || meter["connection"] == nil {
+		t.Errorf("smart meter: %v", meter)
 	}
 	low := env.obj("hive_list_devices", map[string]any{"low_battery": true})
 	if low["total"] != 2.0 { // the TRV at 20% and the dead keypad
