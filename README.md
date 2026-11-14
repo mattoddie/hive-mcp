@@ -82,7 +82,7 @@ claude mcp add --transport http hive http://<docker-host>:8080/mcp \
 
 Now ask *"How warm is the house?"* in Claude Code.
 
-Using **Claude Desktop, VS Code, Cursor or Codex**? See [Connecting MCP clients](docs/clients.md). Prefer not to run a service? Use [stdio mode](docs/clients.md#stdio-mode) with `docker run -i`, or a [release binary](docs/deployment.md#running-without-docker) without Docker.
+Using **Claude Desktop, VS Code, Cursor or Codex**? See [Connecting MCP clients](docs/clients.md). Prefer not to run a service? Use [stdio mode](docs/clients.md#stdio-mode) with `docker run -i`, or a [release binary](docs/deployment.md#running-without-docker) without Docker. On macOS or Linux: `brew install mattoddie/tap/hive-mcp`.
 
 ## Turning on changes
 
