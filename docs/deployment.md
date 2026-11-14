@@ -186,6 +186,16 @@ The server only needs outbound HTTPS to `beekeeper.hivehome.com`, `sso.hivehome.
 
 Docker is the easiest way to run hive-mcp as a service, but the server is a single static binary with no dependencies.
 
+### With Homebrew
+
+On macOS or Linux, install the release binary with [Homebrew](https://brew.sh):
+
+```sh
+brew install mattoddie/tap/hive-mcp
+```
+
+`brew upgrade` picks up new releases, usually within an hour of them being published. The formula installs the same release archive described below, after checking its checksum and build provenance. See [mattoddie/homebrew-tap](https://github.com/mattoddie/homebrew-tap).
+
 ### Download a release binary
 
 Each [release](https://github.com/mattoddie/hive-mcp/releases/latest) has an archive for macOS, Linux and Windows on `amd64` and `arm64`. Each archive holds the `hive-mcp` binary and the licence. For example, on a Raspberry Pi or another 64-bit Arm Linux machine:

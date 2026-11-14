@@ -13,7 +13,7 @@ This guide takes you from nothing to asking your first question about your Hive 
 ## What you need
 
 > [!TIP]
-> **No Docker?** Each release also has plain binaries for macOS, Linux and Windows. See [Running without Docker](deployment.md#running-without-docker) and [connecting a client to the binary](clients.md#without-docker).
+> **No Docker?** Each release also has plain binaries for macOS, Linux and Windows. See [Running without Docker](deployment.md#running-without-docker) and [connecting a client to the binary](clients.md#without-docker). On macOS or Linux, `brew install mattoddie/tap/hive-mcp` installs it with Homebrew.
 
 - **A Hive account** that you can log in to in the Hive app, with at least one Hive product, such as Hive Active Heating. See [Compatibility](compatibility.md) for the devices hive-mcp knows about.
 - **The phone that receives your Hive text messages.** Hive accounts use two-step verification, so the first login needs a code Hive sends by SMS.
