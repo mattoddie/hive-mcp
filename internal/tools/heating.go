@@ -39,6 +39,11 @@ type boostHeatingArgs struct {
 	Minutes     *int    `json:"minutes,omitempty" jsonschema:"How long to boost for, in minutes (default 60, at most 360)"`
 }
 
+type setHeatingScheduleArgs struct {
+	zoneArgs
+	weekOf[heatingPeriod]
+}
+
 var heatingModes = map[string]string{"schedule": "SCHEDULE", "manual": "MANUAL", "off": "OFF"}
 
 func registerHeating(c *Context) {
@@ -97,6 +102,44 @@ func registerHeating(c *Context) {
 		}
 		return Obj{"zone": hive.Name(p), "mode": strings.ToLower(hive.Str(p, "state", "mode")), "time_zone": n.Location().String(),
 			"now": n.ScheduleNow(p, time.Now()), "week": hive.FormatSchedule(sched)}, nil
+	})
+
+	add(c, Def{
+		Toolset: "heating", Name: "hive_set_heating_schedule", Title: "Set heating schedule",
+		Description: "Change a heating zone's or TRV zone's weekly schedule. Give the periods for the days that change, by day or with weekdays, weekend or every_day (a specific day wins over a group); other days keep their current periods. Each day has 1 to 6 periods, each a start time (HH:MM, home's local time) and a target temperature, lasting until the next period starts (before a day's first period, the previous day's last one carries on). " +
+			"This replaces those days' schedule for good, so show the user the new periods and get their go-ahead first. The zone only follows it in schedule mode.",
+		Gate: Write, Idempotent: true, Destructive: true,
+		Ranges: map[string][2]float64{"target_temperature": c.tempRange()},
+	}, func(ctx context.Context, a setHeatingScheduleArgs) (any, error) {
+		changed := map[string][]slot{}
+		for day, periods := range a.days() {
+			for _, p := range periods {
+				start, err := parseClock(p.From)
+				if err != nil {
+					return nil, fmt.Errorf("%s: %w", day, err)
+				}
+				if err := checkTemperature(day+" "+p.From+" target_temperature", p.Temperature, c.maxTemp()); err != nil {
+					return nil, err
+				}
+				changed[day] = append(changed[day], slot{start, Obj{"target": p.Temperature}})
+			}
+			if len(periods) == 0 {
+				changed[day] = nil
+			}
+		}
+		_, p, err := zone(ctx, a.Zone, true)
+		if err != nil {
+			return nil, err
+		}
+		week, days, err := buildSchedule(p, changed)
+		if err != nil {
+			return nil, err
+		}
+		out, err := setSchedule(ctx, c, p, week, days)
+		if err == nil && hive.Str(p, "state", "mode") != "SCHEDULE" {
+			out.(Obj)["note_mode"] = fmt.Sprintf("%s is in %s mode, so it won't follow the schedule until it's switched to schedule (hive_set_heating_mode).", hive.Name(p), strings.ToLower(hive.Str(p, "state", "mode")))
+		}
+		return out, err
 	})
 
 	add(c, Def{

@@ -102,7 +102,7 @@
       "name": "schedule_review",
       "description": "Review the heating and hot water schedules for comfort and wasted energy, and suggest changes.",
       "arguments": [],
-      "text": "Review my heating and hot water schedules.\n1. hive_get_heating_schedule for each heating zone and TRV zone (see hive_get_heating for the zones), and hive_get_hot_water_schedule.\n2. Look for: heating on when people are usually out or asleep, very high or low targets, zones that heat at the same time as each other for no reason, long hot water periods, and weekdays and weekends that look copied without thought.\n3. Summarise each schedule in a short table, then suggest specific changes with the energy saving or comfort reason for each.\nDon't change anything: hive-mcp can't edit schedules, so I'll make any changes in the Hive app."
+      "text": "Review my heating and hot water schedules.\n1. hive_get_heating_schedule for each heating zone and TRV zone (see hive_get_heating for the zones), and hive_get_hot_water_schedule.\n2. Look for: heating on when people are usually out or asleep, very high or low targets, zones that heat at the same time as each other for no reason, long hot water periods, and weekdays and weekends that look copied without thought.\n3. Summarise each schedule in a short table, then suggest specific changes with the energy saving or comfort reason for each.\nDon't change anything: schedule editing is turned off on this server (it needs HIVE_ALLOW_WRITES), so I'll make any changes in the Hive app."
     }
   ],
   "keywords": [

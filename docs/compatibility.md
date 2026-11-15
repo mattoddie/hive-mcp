@@ -9,9 +9,9 @@ hive-mcp works with what's on your Hive account. These are the products it knows
 
 | Hive product | Shows up as | Read | Control |
 |---|---|---|---|
-| Hive Active Heating: thermostat (including Thermostat mini) with a boiler module or receiver, one or more zones | `heating` product; `thermostatui` and `boilermodule` devices | ✅ temperature, target, mode, boost, schedule, calling for heat, thermostat battery | ✅ target, schedule / manual / off, boost and cancel |
-| Hive hot water control (on dual-channel receivers, such as SLR2) | `hotwater` product | ✅ on or off, mode, boost, schedule | ✅ on / off / schedule, boost and cancel |
-| Hive Radiator Valve (TRV) | `trvcontrol` product; `trv` devices | ✅ zone temperature, target, mode, schedule; each valve's battery, calibration, mounting and child lock | ✅ target, schedule / manual / off, boost and cancel |
+| Hive Active Heating: thermostat (including Thermostat mini) with a boiler module or receiver, one or more zones | `heating` product; `thermostatui` and `boilermodule` devices | ✅ temperature, target, mode, boost, schedule, calling for heat, thermostat battery | ✅ target, schedule / manual / off, boost and cancel, weekly schedule |
+| Hive hot water control (on dual-channel receivers, such as SLR2) | `hotwater` product | ✅ on or off, mode, boost, schedule | ✅ on / off / schedule, boost and cancel, weekly schedule |
+| Hive Radiator Valve (TRV) | `trvcontrol` product; `trv` devices | ✅ zone temperature, target, mode, schedule; each valve's battery, calibration, mounting and child lock | ✅ target, schedule / manual / off, boost and cancel, weekly schedule |
 | Hive Active Plug | `activeplug` | ✅ on or off, power use | ✅ on and off |
 | Hive Active Light Dimmable | `warmwhitelight` | ✅ on or off, brightness | ✅ on, off, brightness |
 | Hive Active Light Cool to Warm White | `tuneablelight` | ✅ also colour temperature | ✅ also colour temperature |
@@ -39,7 +39,6 @@ Window, door and motion sensors were also sold as part of HomeShield. They still
 
 ### Not covered
 
-- **Changing schedules.** hive-mcp reads heating and hot water schedules but can't edit them yet. Use the Hive app.
 - **Colour (hue and saturation) for colour bulbs**, Hive "actions" (automations), heat-on-demand, and frost protection settings. The raw API tool can reach them if you know the request.
 - **Hive heat pumps, EV chargers and energy data**, which use other systems.
 - **More than one home.** Hive accounts can have more than one home. hive-mcp reads what Hive returns by default, which is the primary home; switching between homes hasn't been worked out.

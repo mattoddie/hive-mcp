@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -62,5 +63,25 @@ func TestNoHotWater(t *testing.T) {
 	env.mock.SetNodes(nodes)
 	if msg := env.callErr("hive_get_hot_water", nil); !strings.Contains(msg, "no hot water control") {
 		t.Errorf("error: %s", msg)
+	}
+}
+
+func TestSetHotWaterSchedule(t *testing.T) {
+	env := newEnv(t)
+	res := env.obj("hive_set_hot_water_schedule", map[string]any{
+		"every_day": []any{map[string]any{"from": "00:00", "status": "off"}, map[string]any{"from": "06:30", "status": "on"}, map[string]any{"from": "07:30", "status": "off"}},
+	})
+	sched := env.mock.Product(hivetest.HotWaterID)["state"].(map[string]any)["schedule"].(map[string]any)
+	for _, d := range []string{"monday", "sunday"} {
+		got, _ := json.Marshal(sched[d])
+		if string(got) != `[{"start":0,"value":{"status":"OFF"}},{"start":390,"value":{"status":"ON"}},{"start":450,"value":{"status":"OFF"}}]` {
+			t.Errorf("%s: %s", d, got)
+		}
+	}
+	if len(res["days_changed"].([]any)) != 7 {
+		t.Errorf("result: %v", res)
+	}
+	if !env.rejects("hive_set_hot_water_schedule", map[string]any{"monday": []any{map[string]any{"from": "00:00", "status": "boost"}}}) {
+		t.Error("status boost accepted")
 	}
 }

@@ -73,7 +73,7 @@ func TestToolsetsFilter(t *testing.T) {
 			t.Errorf("%s registered with only the hotwater toolset", name)
 		}
 	}
-	if len(names) != 5 {
+	if len(names) != 6 {
 		t.Errorf("hotwater tools: %d", len(names))
 	}
 }
@@ -148,6 +148,24 @@ func TestPromptsFollowTheTools(t *testing.T) {
 	water.Toolsets = map[string]bool{"hotwater": true}
 	if got := list(water); len(got) != 1 || !got["hot_water_now"] {
 		t.Errorf("prompts with only the hotwater toolset: %v", got)
+	}
+}
+
+func TestScheduleReviewOffersEditsOnlyWithWrites(t *testing.T) {
+	get := func(o config.Tools) string {
+		res, err := newEnv(t, o).session.GetPrompt(context.Background(), &mcp.GetPromptParams{Name: "schedule_review"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res.Messages[0].Content.(*mcp.TextContent).Text
+	}
+	if txt := get(config.AllTools()); !strings.Contains(txt, "hive_set_heating_schedule") {
+		t.Errorf("with writes: %s", txt)
+	}
+	ro := config.AllTools()
+	ro.AllowWrites = false
+	if txt := get(ro); strings.Contains(txt, "hive_set_heating_schedule") || !strings.Contains(txt, "Hive app") {
+		t.Errorf("read-only: %s", txt)
 	}
 }
 
