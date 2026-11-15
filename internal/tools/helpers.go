@@ -112,6 +112,9 @@ func change(ctx context.Context, cl *hive.Client, p Obj, body Obj, summarize fun
 		return nil, err
 	}
 	out := Obj{"done": true, "name": hive.Name(p), "sent": body}
+	if hive.IsDryRun(ctx) {
+		return out, nil // nothing changed, so there's nothing new to read
+	}
 	n, err := cl.Nodes(ctx, true)
 	if err != nil {
 		out["note"] = "The change was accepted, but reading the new state failed: " + err.Error()

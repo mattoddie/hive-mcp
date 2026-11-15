@@ -153,9 +153,25 @@ func add[In any](c *Context, d Def, h func(ctx context.Context, in In) (any, err
 	if !readOnly {
 		ann.DestructiveHint = boolPtr(d.Destructive)
 	}
-	tool := &mcp.Tool{Name: d.Name, Title: d.Title, Description: d.Description, Annotations: ann, InputSchema: schemaFor[In](d)}
-	mcp.AddTool(c.Server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in In) (*mcp.CallToolResult, any, error) {
+	schema := schemaFor[In](d)
+	// Tools that can change things preview the change with dry_run.
+	canDryRun := d.Gate == Write || (d.Changes != nil && c.AllowWrites)
+	if canDryRun {
+		if schema.Properties == nil {
+			schema.Properties = map[string]*jsonschema.Schema{}
+		}
+		schema.Properties["dry_run"] = &jsonschema.Schema{Type: "boolean", Description: dryRunDescription}
+	}
+	tool := &mcp.Tool{Name: d.Name, Title: d.Title, Description: d.Description, Annotations: ann, InputSchema: schema}
+	mcp.AddTool(c.Server, tool, func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, any, error) {
+		var dry *hive.DryRun
+		if canDryRun && dryRunRequested(req) {
+			ctx, dry = hive.WithDryRun(ctx)
+		}
 		out, err := h(ctx, in)
+		if dry != nil && err == nil {
+			return textResult(dryRunResult(dry.Requests(), out)), nil, nil
+		}
 		if err != nil {
 			// A handler that fails part way returns what it did as well, so the
 			// model knows what changed.
@@ -177,6 +193,32 @@ func add[In any](c *Context, d Def, h func(ctx context.Context, in In) (any, err
 	case d.Changes != nil:
 		c.audited[d.Name] = d.Changes
 	}
+}
+
+const dryRunDescription = "Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed"
+
+// dryRunRequested reports whether a call passed dry_run: true.
+func dryRunRequested(req *mcp.CallToolRequest) bool {
+	if req == nil || req.Params == nil || len(req.Params.Arguments) == 0 {
+		return false
+	}
+	var a struct {
+		DryRun bool `json:"dry_run"`
+	}
+	return json.Unmarshal(req.Params.Arguments, &a) == nil && a.DryRun
+}
+
+// dryRunResult reports the requests a dry run stopped. A tool that would
+// have sent nothing returns what it would have returned instead.
+func dryRunResult(reqs []hive.PlannedRequest, out any) Obj {
+	res := Obj{"dry_run": true, "would_send": reqs}
+	if len(reqs) == 0 {
+		res["result"] = out
+		res["note"] = "Nothing was changed: this was a dry run, and the call wouldn't send any change to Hive."
+		return res
+	}
+	res["note"] = "Nothing was changed: this was a dry run. would_send lists the requests, in order, that the call would send to Hive. Call again without dry_run to make the change."
+	return res
 }
 
 // NoArgs is the input of tools without arguments.

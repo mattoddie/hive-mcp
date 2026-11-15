@@ -90,6 +90,22 @@ The prompts that change things (`warm_up`, `hot_water_now` and `going_away`) are
 
 With `HIVE_ALLOW_WRITES=true` the assistant can change your heating, hot water, holiday mode, plugs and lights. The server tells the model to confirm changes with you first, and good clients also ask before running any tool that isn't read-only. Every change comes back with what was sent and how the zone or device looks afterwards.
 
+### Previewing a change
+
+Every tool that changes something takes `dry_run: true`. The call is checked as usual (zone names, temperatures, dates, `confirm`), but instead of being sent, the requests it would make are returned, in order, with their exact bodies:
+
+```json
+{
+  "dry_run": true,
+  "would_send": [
+    {"method": "POST", "path": "/nodes/heating/<id>", "body": {"boost": 60, "mode": "BOOST", "target": 21}}
+  ],
+  "note": "Nothing was changed: this was a dry run. ..."
+}
+```
+
+Ask the assistant to "show me what you'd send first" to see one. Nothing is changed and the cache isn't touched.
+
 ### Heating modes and boosts
 
 A heating zone (a Hive thermostat) or TRV zone (Hive radiator valves) has one of these modes, as in the Hive app:
