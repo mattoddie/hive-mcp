@@ -246,41 +246,12 @@ Switch a zone between schedule (follow the weekly schedule), manual (hold one te
 
 🟠 write · destructive
 
-Change a heating zone's or TRV zone's weekly schedule. Give the periods for the days that change, by day or with weekdays, weekend or every_day (a specific day wins over a group); other days keep their current periods. Each day has 1 to 6 periods, each a start time (HH:MM, home's local time) and a target temperature, lasting until the next period starts (before a day's first period, the previous day's last one carries on). This replaces those days' schedule for good, so show the user the new periods and get their go-ahead first. The zone only follows it in schedule mode.
+Change a heating zone's or TRV zone's weekly schedule. In days, give the periods for the days that change, keyed by day or by weekdays, weekend or every_day (a day wins over a group); other days keep their current periods. Each day has 1 to 6 periods, each a start time (HH:MM, home's local time) and a target temperature, lasting until the next period starts (before a day's first period, the previous day's last one carries on). This replaces those days' schedule for good, so show the user the new periods and get their go-ahead first. The zone only follows it in schedule mode.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
+| `days` | object | yes | The new periods for the days that change, keyed by day (monday ... sunday) or group (weekdays, weekend, every_day); a day wins over a group. Days left out keep their periods |
 | `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
-| `every_day` | object[] |  | Periods for every day of the week |
-| `every_day[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `every_day[].target_temperature` | number (5–25) | yes | Target temperature in °C, from 5 in steps of 0.5, up to HIVE_MAX_TEMP |
-| `friday` | object[] |  | Periods for Friday |
-| `friday[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `friday[].target_temperature` | number (5–25) | yes | Target temperature in °C, from 5 in steps of 0.5, up to HIVE_MAX_TEMP |
-| `monday` | object[] |  | Periods for Monday |
-| `monday[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `monday[].target_temperature` | number (5–25) | yes | Target temperature in °C, from 5 in steps of 0.5, up to HIVE_MAX_TEMP |
-| `saturday` | object[] |  | Periods for Saturday |
-| `saturday[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `saturday[].target_temperature` | number (5–25) | yes | Target temperature in °C, from 5 in steps of 0.5, up to HIVE_MAX_TEMP |
-| `sunday` | object[] |  | Periods for Sunday |
-| `sunday[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `sunday[].target_temperature` | number (5–25) | yes | Target temperature in °C, from 5 in steps of 0.5, up to HIVE_MAX_TEMP |
-| `thursday` | object[] |  | Periods for Thursday |
-| `thursday[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `thursday[].target_temperature` | number (5–25) | yes | Target temperature in °C, from 5 in steps of 0.5, up to HIVE_MAX_TEMP |
-| `tuesday` | object[] |  | Periods for Tuesday |
-| `tuesday[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `tuesday[].target_temperature` | number (5–25) | yes | Target temperature in °C, from 5 in steps of 0.5, up to HIVE_MAX_TEMP |
-| `wednesday` | object[] |  | Periods for Wednesday |
-| `wednesday[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `wednesday[].target_temperature` | number (5–25) | yes | Target temperature in °C, from 5 in steps of 0.5, up to HIVE_MAX_TEMP |
-| `weekdays` | object[] |  | Periods for Monday to Friday |
-| `weekdays[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `weekdays[].target_temperature` | number (5–25) | yes | Target temperature in °C, from 5 in steps of 0.5, up to HIVE_MAX_TEMP |
-| `weekend` | object[] |  | Periods for Saturday and Sunday |
-| `weekend[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `weekend[].target_temperature` | number (5–25) | yes | Target temperature in °C, from 5 in steps of 0.5, up to HIVE_MAX_TEMP |
 | `zone` | string |  | Heating zone or TRV zone, by name (for example "Heating" or "Bedroom") or ID. Can be left out when there's only one. See hive_get_heating |
 
 ### hive_set_heating_temperature
@@ -366,41 +337,12 @@ Switch the hot water on (it stays on until changed), off, or back to its schedul
 
 🟠 write · destructive
 
-Change the weekly hot water schedule. Give the periods for the days that change, by day or with weekdays, weekend or every_day (a specific day wins over a group); other days keep their current periods. Each day has 1 to 6 periods, each a start time (HH:MM, home's local time) and on or off, lasting until the next period starts (before a day's first period, the previous day's last one carries on). This replaces those days' schedule for good, so show the user the new periods and get their go-ahead first. The hot water only follows it in schedule mode.
+Change the weekly hot water schedule. In days, give the periods for the days that change, keyed by day or by weekdays, weekend or every_day (a day wins over a group); other days keep their current periods. Each day has 1 to 6 periods, each a start time (HH:MM, home's local time) and on or off, lasting until the next period starts (before a day's first period, the previous day's last one carries on). This replaces those days' schedule for good, so show the user the new periods and get their go-ahead first. The hot water only follows it in schedule mode.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
+| `days` | object | yes | The new periods for the days that change, keyed by day (monday ... sunday) or group (weekdays, weekend, every_day); a day wins over a group. Days left out keep their periods |
 | `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
-| `every_day` | object[] |  | Periods for every day of the week |
-| `every_day[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `every_day[].status` | `"on"` \| `"off"` | yes | on or off |
-| `friday` | object[] |  | Periods for Friday |
-| `friday[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `friday[].status` | `"on"` \| `"off"` | yes | on or off |
-| `monday` | object[] |  | Periods for Monday |
-| `monday[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `monday[].status` | `"on"` \| `"off"` | yes | on or off |
-| `saturday` | object[] |  | Periods for Saturday |
-| `saturday[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `saturday[].status` | `"on"` \| `"off"` | yes | on or off |
-| `sunday` | object[] |  | Periods for Sunday |
-| `sunday[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `sunday[].status` | `"on"` \| `"off"` | yes | on or off |
-| `thursday` | object[] |  | Periods for Thursday |
-| `thursday[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `thursday[].status` | `"on"` \| `"off"` | yes | on or off |
-| `tuesday` | object[] |  | Periods for Tuesday |
-| `tuesday[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `tuesday[].status` | `"on"` \| `"off"` | yes | on or off |
-| `wednesday` | object[] |  | Periods for Wednesday |
-| `wednesday[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `wednesday[].status` | `"on"` \| `"off"` | yes | on or off |
-| `weekdays` | object[] |  | Periods for Monday to Friday |
-| `weekdays[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `weekdays[].status` | `"on"` \| `"off"` | yes | on or off |
-| `weekend` | object[] |  | Periods for Saturday and Sunday |
-| `weekend[].from` | string | yes | Start time, HH:MM in the home's local time. Lasts until the next period starts |
-| `weekend[].status` | `"on"` \| `"off"` | yes | on or off |
 
 ## devices
 

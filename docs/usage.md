@@ -134,7 +134,7 @@ With heat on demand, Hive radiator valves can turn the boiler on through the the
 
 ### Schedules
 
-`hive_set_heating_schedule` (for a heating zone or TRV zone) and `hive_set_hot_water_schedule` change the weekly schedule. Give the periods for just the days that change, by day name or with `weekdays`, `weekend` or `every_day`; the other days keep their periods. Each day has one to six periods, each a start time (`HH:MM`, your home's local time) and a temperature (heating) or `on`/`off` (hot water), lasting until the next period starts. Hive only takes a whole week at once, so hive-mcp sends the week with your changes and shows the schedule Hive then has. A zone only follows its schedule in `schedule` mode.
+`hive_set_heating_schedule` (for a heating zone or TRV zone) and `hive_set_hot_water_schedule` change the weekly schedule. In `days`, give the periods for just the days that change, keyed by day name or by `weekdays`, `weekend` or `every_day`; the other days keep their periods. Each day has one to six periods, each a start time (`HH:MM`, your home's local time) and a temperature (heating) or `on`/`off` (hot water), lasting until the next period starts. Hive only takes a whole week at once, so hive-mcp sends the week with your changes and shows the schedule Hive then has. A zone only follows its schedule in `schedule` mode.
 
 > *"Make the weekday heating 16 °C overnight, 20 °C from 6:30 to 8:30 and 21 °C from 17:00 to 22:30."*
 

@@ -69,7 +69,7 @@ func TestNoHotWater(t *testing.T) {
 func TestSetHotWaterSchedule(t *testing.T) {
 	env := newEnv(t)
 	res := env.obj("hive_set_hot_water_schedule", map[string]any{
-		"every_day": []any{map[string]any{"from": "00:00", "status": "off"}, map[string]any{"from": "06:30", "status": "on"}, map[string]any{"from": "07:30", "status": "off"}},
+		"days": map[string]any{"every_day": []any{map[string]any{"from": "00:00", "status": "off"}, map[string]any{"from": "06:30", "status": "on"}, map[string]any{"from": "07:30", "status": "off"}}},
 	})
 	sched := env.mock.Product(hivetest.HotWaterID)["state"].(map[string]any)["schedule"].(map[string]any)
 	for _, d := range []string{"monday", "sunday"} {
@@ -81,7 +81,7 @@ func TestSetHotWaterSchedule(t *testing.T) {
 	if len(res["days_changed"].([]any)) != 7 {
 		t.Errorf("result: %v", res)
 	}
-	if !env.rejects("hive_set_hot_water_schedule", map[string]any{"monday": []any{map[string]any{"from": "00:00", "status": "boost"}}}) {
+	if !env.rejects("hive_set_hot_water_schedule", map[string]any{"days": map[string]any{"monday": []any{map[string]any{"from": "00:00", "status": "boost"}}}}) {
 		t.Error("status boost accepted")
 	}
 }

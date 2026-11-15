@@ -19,7 +19,7 @@ type boostHotWaterArgs struct {
 }
 
 type setHotWaterScheduleArgs struct {
-	weekOf[hotWaterPeriod]
+	Days map[string][]hotWaterPeriod `json:"days" jsonschema:"The new periods for the days that change, keyed by day (monday ... sunday) or group (weekdays, weekend, every_day); a day wins over a group. Days left out keep their periods"`
 }
 
 var hotWaterModes = map[string]string{"on": "MANUAL", "off": "OFF", "schedule": "SCHEDULE"}
@@ -67,13 +67,18 @@ func registerHotWater(c *Context) {
 
 	add(c, Def{
 		Toolset: "hotwater", Name: "hive_set_hot_water_schedule", Title: "Set hot water schedule",
-		Description: "Change the weekly hot water schedule. Give the periods for the days that change, by day or with weekdays, weekend or every_day (a specific day wins over a group); other days keep their current periods. Each day has 1 to 6 periods, each a start time (HH:MM, home's local time) and on or off, lasting until the next period starts (before a day's first period, the previous day's last one carries on). " +
+		Description: "Change the weekly hot water schedule. In days, give the periods for the days that change, keyed by day or by weekdays, weekend or every_day (a day wins over a group); other days keep their current periods. Each day has 1 to 6 periods, each a start time (HH:MM, home's local time) and on or off, lasting until the next period starts (before a day's first period, the previous day's last one carries on). " +
 			"This replaces those days' schedule for good, so show the user the new periods and get their go-ahead first. The hot water only follows it in schedule mode.",
 		Gate: Write, Idempotent: true, Destructive: true,
 		Enums: map[string][]string{"status": {"on", "off"}},
+		Keys:  map[string][]string{"days": dayKeyNames},
 	}, func(ctx context.Context, a setHotWaterScheduleArgs) (any, error) {
+		byDay, err := expandDays(a.Days)
+		if err != nil {
+			return nil, err
+		}
 		changed := map[string][]slot{}
-		for day, periods := range a.days() {
+		for day, periods := range byDay {
 			for _, p := range periods {
 				start, err := parseClock(p.From)
 				if err != nil {
