@@ -11,6 +11,7 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 - `hive_set_heating_schedule` (heating zones and TRV zones) and `hive_set_hot_water_schedule` change the weekly schedule. Give periods for only the days that change, by day or with `weekdays`, `weekend` or `every_day`; the rest of the week is kept. Each day takes one to six periods, temperatures are checked against `HIVE_MAX_TEMP`, and the result shows the schedule Hive then has. Both need `HIVE_ALLOW_WRITES`.
 - `hive_set_heat_on_demand` turns heat on demand on or off for a heating zone, so radiator valves can (or can't) turn the boiler on when their rooms need heat. It needs `HIVE_ALLOW_WRITES`.
 - `hive_set_light` sets the colour of colour bulbs with the new `hue` (0–359) and `saturation` (0–100) arguments, with `brightness` as the colour's brightness.
+- `hive_list_actions` lists the Hive actions (automations from the Hive app) with what starts each one and what it does, and `hive_set_action` turns one on or off (with `HIVE_ALLOW_WRITES`).
 - With writes on, the `schedule_review` prompt offers to apply the changes you agree to.
 
 ### Changed

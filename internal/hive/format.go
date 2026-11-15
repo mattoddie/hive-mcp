@@ -254,12 +254,58 @@ func (n *Nodes) When(ms any) string {
 	return time.UnixMilli(int64(f)).In(n.Location()).Format(time.RFC3339)
 }
 
-// Name is a product or device's name.
+// Name is a product, device or action's name.
 func Name(o Obj) string {
 	if s := Str(o, "state", "name"); s != "" {
 		return s
 	}
-	return Str(o, "props", "zoneName")
+	if s := Str(o, "props", "zoneName"); s != "" {
+		return s
+	}
+	return Str(o, "name")
+}
+
+// Actions returns the account's actions (Hive's automations), sorted by name.
+func (n *Nodes) Actions() []Obj {
+	out := Objs(n.Raw["actions"])
+	sort.SliceStable(out, func(i, j int) bool { return strings.ToLower(Name(out[i])) < strings.ToLower(Name(out[j])) })
+	return out
+}
+
+// SummarizeAction describes an action: what starts it ("when"), what it
+// waits for ("while") and what it does ("then"), by event type.
+func (n *Nodes) SummarizeAction(a Obj) Obj {
+	o := Obj{"id": Str(a, "id"), "name": Name(a), "enabled": Bool(a, "enabled"), "template": Str(a, "template")}
+	for _, e := range Objs(a["events"]) {
+		g := Str(e, "group")
+		if g == "" {
+			continue
+		}
+		ev := Obj{"type": Str(e, "type")}
+		if id := Str(e, "id"); id != "" {
+			if p := n.product(id); p != nil {
+				ev["device"] = Name(p)
+			} else if d := n.Device(id); d != nil {
+				ev["device"] = Name(d)
+			}
+		}
+		if s, ok := e["settings"].(Obj); ok && len(s) > 0 {
+			ev["settings"] = s
+		}
+		o[g] = append(asList(o[g]), ev)
+	}
+	if !BoolOrDefault(a, true, "entitled") {
+		o["entitled"] = false
+	}
+	return Compact(o)
+}
+
+// BoolOrDefault returns a nested boolean, or def when it's missing.
+func BoolOrDefault(o any, def bool, path ...string) bool {
+	if b, ok := Get(o, path...).(bool); ok {
+		return b
+	}
+	return def
 }
 
 func lower(s string) string { return strings.ToLower(s) }

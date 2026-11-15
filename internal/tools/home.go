@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -20,6 +21,11 @@ type listDevicesArgs struct {
 	Offline    bool   `json:"offline,omitempty" jsonschema:"Only devices Hive says are offline"`
 	rawArgs
 	freshArgs
+}
+
+type setActionArgs struct {
+	Action  string `json:"action" jsonschema:"The action, by name or ID (see hive_list_actions)"`
+	Enabled bool   `json:"enabled" jsonschema:"true to turn the action on, false to turn it off"`
 }
 
 type setHolidayArgs struct {
@@ -151,6 +157,54 @@ func registerHome(c *Context) {
 			out = []Obj{}
 		}
 		return Obj{"total": len(out), "devices": out}, nil
+	})
+
+	add(c, Def{
+		Toolset: "home", Name: "hive_list_actions", Title: "List Hive actions",
+		Description: "List the Hive actions (automations set up in the Hive app, such as \"when the back door opens, send a notification\"): each one's name, whether it's on, and its events: what starts it (when), any condition (while) and what it does (then), with the devices involved.",
+	}, func(ctx context.Context, a rawFreshArgs) (any, error) {
+		n, err := c.nodes(ctx, a.Fresh)
+		if err != nil {
+			return nil, err
+		}
+		out := []Obj{}
+		for _, act := range n.Actions() {
+			if a.Raw {
+				out = append(out, redactObj(act))
+			} else {
+				out = append(out, n.SummarizeAction(act))
+			}
+		}
+		return Obj{"total": len(out), "actions": out}, nil
+	})
+
+	add(c, Def{
+		Toolset: "home", Name: "hive_set_action", Title: "Turn a Hive action on or off",
+		Description: "Turn a Hive action (an automation from the Hive app) on or off. This doesn't run it: an action that's on runs when its trigger happens. Actions can only be created or edited in the Hive app.",
+		Gate:        Write, Idempotent: true,
+	}, func(ctx context.Context, a setActionArgs) (any, error) {
+		// Fresh, because the whole action is sent back.
+		n, err := c.nodes(ctx, true)
+		if err != nil {
+			return nil, err
+		}
+		act, err := find(n.Actions(), a.Action, "action")
+		if err != nil {
+			return nil, err
+		}
+		// Hive takes the whole action back with enabled changed, as pyhiveapi's
+		// set_action sends it: PUT /actions/<id>.
+		body := make(Obj, len(act))
+		for k, v := range act {
+			body[k] = v
+		}
+		body["enabled"] = a.Enabled
+		id := hive.Str(act, "id")
+		if err := cl.Do(ctx, "PUT", "/actions/"+url.PathEscape(id), body, nil); err != nil {
+			return nil, err
+		}
+		cl.Invalidate()
+		return Obj{"done": true, "name": hive.Name(act), "sent": Obj{"enabled": a.Enabled}}, nil
 	})
 
 	add(c, Def{
