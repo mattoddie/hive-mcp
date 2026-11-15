@@ -6,6 +6,8 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-15
+
 ### Added
 
 - When Hive boosts a thermostat because radiator valves are calling for heat (heat on demand), `hive_get_overview` and `hive_get_heating` say so with `boost_reason` and list the rooms asking for heat in `heat_requested_by`, so it isn't mistaken for a boost someone started.
@@ -102,7 +104,8 @@ First release, not yet tested against a live Hive account. Hive's API is unoffic
 - Multi-arch distroless Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - A mock Hive for tests (sign-in page, a Cognito that checks SRP proofs, SMS codes and remembered devices, and the API), and documentation including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/hive-mcp/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/mattoddie/hive-mcp/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/mattoddie/hive-mcp/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/mattoddie/hive-mcp/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/mattoddie/hive-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/mattoddie/hive-mcp/compare/v0.2.0...v0.3.0
