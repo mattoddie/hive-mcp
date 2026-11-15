@@ -159,6 +159,22 @@ func TestBoostingSummary(t *testing.T) {
 	if s["mode"] != "boost" || s["boost_minutes_left"] != 25.0 || s["mode_after_boost"] != "schedule" || s["schedule_now"] == nil {
 		t.Errorf("boost: %v", s)
 	}
+	if s["boost_reason"] != nil {
+		t.Errorf("manual boost has a reason: %v", s)
+	}
+
+	// Heat on demand: Hive boosts the thermostat for the TRV zones calling for heat.
+	p["props"].(map[string]any)["autoBoost"] = map[string]any{"active": true, "duration": 30.0, "trvs": []any{hivetest.TRVZoneID, "gone-zone"}}
+	s = n.SummarizeHeating(n.Products("heating")[0], time.Now())
+	if by, _ := s["heat_requested_by"].([]string); s["boost_reason"] != "heat on demand" || len(by) != 1 || by[0] != "Bedroom" {
+		t.Errorf("heat on demand: %v", s)
+	}
+	trv := raw["products"].([]any)[2].(map[string]any)
+	trv["props"].(map[string]any)["autoBoost"] = p["props"].(map[string]any)["autoBoost"]
+	trv["state"].(map[string]any)["mode"] = "BOOST"
+	if s := n.SummarizeHeating(n.Products("trvcontrol")[0], time.Now()); s["boost_reason"] != nil {
+		t.Errorf("trv zone repeats the reason: %v", s)
+	}
 }
 
 func TestOnly401RefreshesTheLogin(t *testing.T) {

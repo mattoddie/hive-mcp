@@ -191,6 +191,16 @@ func (n *Nodes) Device(id string) Obj {
 	return nil
 }
 
+// product finds a product by ID.
+func (n *Nodes) product(id string) Obj {
+	for _, p := range Objs(n.Raw["products"]) {
+		if Str(p, "id") == id {
+			return p
+		}
+	}
+	return nil
+}
+
 // Homes lists the homes on the account.
 func (n *Nodes) Homes() []Obj {
 	return Objs(Get(n.Raw, "homes", "homes"))
@@ -440,6 +450,22 @@ func (n *Nodes) SummarizeHeating(p Obj, now time.Time) Obj {
 		out["mode"] = "boost"
 		out["boost_minutes_left"] = NumOrNil(p, "state", "boost")
 		out["mode_after_boost"] = lower(Str(p, "props", "previous", "mode"))
+		// With heat on demand, Hive boosts the thermostat itself when radiator
+		// valves call for heat, and lists their zones. A TRV zone carries the
+		// same block, so it's only reported on the thermostat.
+		if Str(p, "type") == "heating" && Bool(p, "props", "autoBoost", "active") {
+			out["boost_reason"] = "heat on demand"
+			var by []string
+			for _, id := range asList(Get(p, "props", "autoBoost", "trvs")) {
+				s, _ := id.(string)
+				if z := n.product(s); z != nil {
+					by = append(by, Name(z))
+				}
+			}
+			if len(by) > 0 {
+				out["heat_requested_by"] = by
+			}
+		}
 	}
 	if mode == "schedule" || (boosting(p) && Str(p, "props", "previous", "mode") == "SCHEDULE") {
 		out["schedule_now"] = n.ScheduleNow(p, now)

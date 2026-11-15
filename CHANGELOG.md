@@ -6,6 +6,10 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+### Added
+
+- When Hive boosts a thermostat because radiator valves are calling for heat (heat on demand), `hive_get_overview` and `hive_get_heating` say so with `boost_reason` and list the rooms asking for heat in `heat_requested_by`, so it isn't mistaken for a boost someone started.
+
 ## [0.3.2] - 2026-11-13
 
 ### Added
