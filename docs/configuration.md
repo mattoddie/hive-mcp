@@ -188,7 +188,7 @@ The [tool reference](tools.md) lists the tools in each toolset, and [Keeping the
 
 ## Keeping the tool list small
 
-Most MCP clients send every tool's name, description and argument schema to the model with each request. hive-mcp's list is small by MCP standards: about 7 KB for the 10 read-only tools of the default `all`, and 16 KB for 21 tools with writes on. Even so, a narrower list leaves more room for your conversation, helps the model pick the right tool, and keeps the rest out of its reach.
+Most MCP clients send every tool's name, description and argument schema to the model with each request. hive-mcp's list is small by MCP standards: about 7 KB for the 11 read-only tools of the default `all`, and 24 KB for 26 tools with writes on. Even so, a narrower list leaves more room for your conversation, helps the model pick the right tool, and keeps the rest out of its reach.
 
 Clients with their own tool search, such as Claude Code, load tool definitions only when the model needs them, so they handle the full list fine. `HIVE_TOOLSETS` still limits what the model can reach.
 
@@ -196,12 +196,12 @@ The sizes are the `tools/list` result the client receives, measured by starting 
 
 | Goal | `HIVE_TOOLSETS` | Read-only | With writes |
 |---|---|---:|---:|
-| Overview, devices and holiday mode | `home` | 4 tools, 3 KB | 6 tools, 4 KB |
-| Heating only | `home,heating` | 7 tools, 5 KB | 13 tools, 10 KB |
-| Heating and hot water | `home,heating,hotwater` | 9 tools, 6 KB | 18 tools, 13 KB |
-| Lights and plugs | `home,devices` | 5 tools, 3 KB | 9 tools, 6 KB |
-| Everything except the raw API tool (default) | `all` | 10 tools, 7 KB | 21 tools, 16 KB |
-| Everything, including the raw API tool | `all,raw` | 11 tools, 8 KB | 22 tools, 17 KB |
+| Overview, devices, holiday mode and actions | `home` | 5 tools, 4 KB | 8 tools, 6 KB |
+| Heating only | `home,heating` | 8 tools, 6 KB | 17 tools, 16 KB |
+| Heating and hot water | `home,heating,hotwater` | 10 tools, 7 KB | 23 tools, 21 KB |
+| Lights and plugs | `home,devices` | 6 tools, 4 KB | 11 tools, 9 KB |
+| Everything except the raw API tool (default) | `all` | 11 tools, 7 KB | 26 tools, 24 KB |
+| Everything, including the raw API tool | `all,raw` | 12 tools, 8 KB | 27 tools, 26 KB |
 
 The login tools (`HIVE_ALLOW_LOGIN_TOOLS=true`) add 2 tools and about 1.4 KB to any of these.
 

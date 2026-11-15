@@ -24,7 +24,7 @@ func TestDryRunSendsNothing(t *testing.T) {
 		{"hive_set_action", map[string]any{"action": "lamp", "enabled": true}, `"method":"PUT","path":"/actions/action-2"`},
 		{"hive_api_request", map[string]any{"method": "POST", "path": "/nodes/activeplug/" + hivetest.PlugID, "body": map[string]any{"status": "OFF"}},
 			`[{"body":{"status":"OFF"},"method":"POST","path":"/nodes/activeplug/` + hivetest.PlugID + `"}]`},
-		{"hive_set_hot_water_schedule", map[string]any{"monday": []any{map[string]any{"from": "00:00", "status": "off"}}}, `"monday":[{"start":0,"value":{"status":"OFF"}}]`},
+		{"hive_set_hot_water_schedule", map[string]any{"days": map[string]any{"monday": []any{map[string]any{"from": "00:00", "status": "off"}}}}, `"monday":[{"start":0,"value":{"status":"OFF"}}]`},
 	}
 	for _, c := range cases {
 		args := map[string]any{"dry_run": true}

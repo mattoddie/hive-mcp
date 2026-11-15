@@ -68,6 +68,8 @@ type Def struct {
 	Enums map[string][]string
 	// Ranges sets the minimum and maximum of number arguments, keyed by argument name.
 	Ranges map[string][2]float64
+	// Keys restricts the keys of object (map) arguments, keyed by argument name.
+	Keys map[string][]string
 	// Changes, for a Read tool that can still change things (the raw tool),
 	// says whether a call with these arguments does, so the audit log records
 	// it. Calls of Write and Login tools are always recorded.
@@ -108,8 +110,16 @@ func schemaFor[In any](d Def) *jsonschema.Schema {
 			if r, ok := d.Ranges[name]; ok {
 				p.Minimum, p.Maximum = floatPtr(r[0]), floatPtr(r[1])
 			}
+			if keys, ok := d.Keys[name]; ok {
+				names := &jsonschema.Schema{Type: "string"}
+				for _, k := range keys {
+					names.Enum = append(names.Enum, k)
+				}
+				p.PropertyNames = names
+			}
 			walk(p)
 			walk(p.Items)
+			walk(p.AdditionalProperties)
 		}
 	}
 	walk(s)

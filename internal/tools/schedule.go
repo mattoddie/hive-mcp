@@ -31,39 +31,34 @@ type hotWaterPeriod struct {
 	Status string `json:"status" jsonschema:"on or off"`
 }
 
-// weekOf is the days a schedule tool can set. More specific keys win: a
-// day over weekdays or weekend, and those over every_day.
-type weekOf[P any] struct {
-	EveryDay  []P `json:"every_day,omitempty" jsonschema:"Periods for every day of the week"`
-	Weekdays  []P `json:"weekdays,omitempty" jsonschema:"Periods for Monday to Friday"`
-	Weekend   []P `json:"weekend,omitempty" jsonschema:"Periods for Saturday and Sunday"`
-	Monday    []P `json:"monday,omitempty" jsonschema:"Periods for Monday"`
-	Tuesday   []P `json:"tuesday,omitempty" jsonschema:"Periods for Tuesday"`
-	Wednesday []P `json:"wednesday,omitempty" jsonschema:"Periods for Wednesday"`
-	Thursday  []P `json:"thursday,omitempty" jsonschema:"Periods for Thursday"`
-	Friday    []P `json:"friday,omitempty" jsonschema:"Periods for Friday"`
-	Saturday  []P `json:"saturday,omitempty" jsonschema:"Periods for Saturday"`
-	Sunday    []P `json:"sunday,omitempty" jsonschema:"Periods for Sunday"`
+// dayKeys are the keys of a schedule tool's days argument: a day, or a
+// group of days. More specific keys win: a day over weekdays or weekend,
+// and those over every_day.
+var dayKeys = map[string][]string{
+	"every_day": scheduleDays, "weekdays": scheduleDays[:5], "weekend": scheduleDays[5:],
+	"monday": {"monday"}, "tuesday": {"tuesday"}, "wednesday": {"wednesday"}, "thursday": {"thursday"},
+	"friday": {"friday"}, "saturday": {"saturday"}, "sunday": {"sunday"},
 }
 
-// days resolves the groups into the periods for each day that changes.
-func (w weekOf[P]) days() map[string][]P {
+// dayKeyNames lists dayKeys in order, for the schema.
+var dayKeyNames = []string{"every_day", "weekdays", "weekend", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
+
+// expandDays resolves the groups into the periods for each day that changes.
+func expandDays[P any](in map[string][]P) (map[string][]P, error) {
 	out := map[string][]P{}
-	set := func(p []P, days ...string) {
-		if p == nil {
-			return
-		}
-		for _, d := range days {
-			out[d] = p
+	for _, group := range dayKeyNames {
+		if p, ok := in[group]; ok {
+			for _, d := range dayKeys[group] {
+				out[d] = p
+			}
 		}
 	}
-	set(w.EveryDay, scheduleDays...)
-	set(w.Weekdays, scheduleDays[:5]...)
-	set(w.Weekend, scheduleDays[5:]...)
-	for i, p := range [][]P{w.Monday, w.Tuesday, w.Wednesday, w.Thursday, w.Friday, w.Saturday, w.Sunday} {
-		set(p, scheduleDays[i])
+	for k := range in {
+		if dayKeys[k] == nil {
+			return nil, fmt.Errorf("%q isn't a day: use monday to sunday, weekdays, weekend or every_day", k)
+		}
 	}
-	return out
+	return out, nil
 }
 
 // parseClock reads HH:MM as minutes past midnight.

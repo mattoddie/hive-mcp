@@ -210,3 +210,13 @@ func TestParseWhen(t *testing.T) {
 		t.Error("accepted free text")
 	}
 }
+
+func TestExpandDays(t *testing.T) {
+	got, err := expandDays(map[string][]int{"every_day": {1}, "weekend": {2}, "sunday": {3}})
+	if err != nil || len(got) != 7 || got["monday"][0] != 1 || got["saturday"][0] != 2 || got["sunday"][0] != 3 {
+		t.Errorf("got %v, %v", got, err)
+	}
+	if _, err := expandDays(map[string][]int{"mondays": {1}}); err == nil {
+		t.Error("an unknown day was accepted")
+	}
+}

@@ -145,9 +145,11 @@ func TestMaxTempIsConfigurable(t *testing.T) {
 func TestSetHeatingSchedule(t *testing.T) {
 	env := newEnv(t)
 	res := env.obj("hive_set_heating_schedule", map[string]any{
-		"zone":     "Heating",
-		"weekdays": []any{map[string]any{"from": "00:00", "target_temperature": 16}, map[string]any{"from": "07:00", "target_temperature": 20.5}},
-		"friday":   []any{map[string]any{"from": "07:00", "target_temperature": 19}, map[string]any{"from": "00:00", "target_temperature": 15}},
+		"zone": "Heating",
+		"days": map[string]any{
+			"weekdays": []any{map[string]any{"from": "00:00", "target_temperature": 16}, map[string]any{"from": "07:00", "target_temperature": 20.5}},
+			"friday":   []any{map[string]any{"from": "07:00", "target_temperature": 19}, map[string]any{"from": "00:00", "target_temperature": 15}},
+		},
 	})
 	sched := env.mock.Product(hivetest.HeatingID)["state"].(map[string]any)["schedule"].(map[string]any)
 	mon, _ := json.Marshal(sched["monday"])
@@ -172,20 +174,20 @@ func TestSetHeatingSchedule(t *testing.T) {
 	}
 
 	// TRV zones have schedules too, and a zone not in schedule mode says so.
-	res = env.obj("hive_set_heating_schedule", map[string]any{"zone": "Bedroom", "sunday": []any{map[string]any{"from": "00:00", "target_temperature": 18}}})
+	res = env.obj("hive_set_heating_schedule", map[string]any{"zone": "Bedroom", "days": map[string]any{"sunday": []any{map[string]any{"from": "00:00", "target_temperature": 18}}}})
 	if res["note_mode"] == nil || !strings.HasPrefix(env.lastBody(), "/nodes/trvcontrol/") {
 		t.Errorf("TRV schedule: %v", res)
 	}
 
 	before := env.posts()
 	for want, args := range map[string]map[string]any{
-		"not a time of day":   {"zone": "Heating", "monday": []any{map[string]any{"from": "7am", "target_temperature": 20}}},
-		"steps of 0.5":        {"zone": "Heating", "monday": []any{map[string]any{"from": "00:00", "target_temperature": 20.2}}},
-		"two periods start":   {"zone": "Heating", "monday": []any{map[string]any{"from": "00:00", "target_temperature": 20}, map[string]any{"from": "00:00", "target_temperature": 18}}},
-		"at most 6 periods":   {"zone": "Heating", "monday": sevenPeriods()},
-		"at least one period": {"zone": "Heating", "monday": []any{}},
-		"nothing to change":   {"zone": "Heating"},
-		"24:00":               {"zone": "Heating", "monday": []any{map[string]any{"from": "24:00", "target_temperature": 20}}},
+		"not a time of day":   {"zone": "Heating", "days": map[string]any{"monday": []any{map[string]any{"from": "7am", "target_temperature": 20}}}},
+		"steps of 0.5":        {"zone": "Heating", "days": map[string]any{"monday": []any{map[string]any{"from": "00:00", "target_temperature": 20.2}}}},
+		"two periods start":   {"zone": "Heating", "days": map[string]any{"monday": []any{map[string]any{"from": "00:00", "target_temperature": 20}, map[string]any{"from": "00:00", "target_temperature": 18}}}},
+		"at most 6 periods":   {"zone": "Heating", "days": map[string]any{"monday": sevenPeriods()}},
+		"at least one period": {"zone": "Heating", "days": map[string]any{"monday": []any{}}},
+		"nothing to change":   {"zone": "Heating", "days": map[string]any{}},
+		"24:00":               {"zone": "Heating", "days": map[string]any{"monday": []any{map[string]any{"from": "24:00", "target_temperature": 20}}}},
 	} {
 		msg := ""
 		if res := env.raw("hive_set_heating_schedule", args); res.IsError {
@@ -198,7 +200,10 @@ func TestSetHeatingSchedule(t *testing.T) {
 			t.Errorf("%v: %q", args, msg)
 		}
 	}
-	if !env.rejects("hive_set_heating_schedule", map[string]any{"zone": "Heating", "monday": []any{map[string]any{"from": "00:00", "target_temperature": 26}}}) {
+	if !env.rejects("hive_set_heating_schedule", map[string]any{"zone": "Heating", "days": map[string]any{"mondays": []any{map[string]any{"from": "00:00", "target_temperature": 20}}}}) {
+		t.Error("an unknown day was accepted")
+	}
+	if !env.rejects("hive_set_heating_schedule", map[string]any{"zone": "Heating", "days": map[string]any{"monday": []any{map[string]any{"from": "00:00", "target_temperature": 26}}}}) {
 		t.Error("26 °C accepted")
 	}
 	if env.posts() != before {
@@ -217,7 +222,7 @@ func sevenPeriods() []any {
 func TestSetScheduleWarnsWhenHiveDoesNotStoreIt(t *testing.T) {
 	env := newEnv(t)
 	env.mock.On("POST", "/nodes/heating/.*", hivetest.JSON([]any{}))
-	res := env.obj("hive_set_heating_schedule", map[string]any{"zone": "Heating", "monday": []any{map[string]any{"from": "00:00", "target_temperature": 18}}})
+	res := env.obj("hive_set_heating_schedule", map[string]any{"zone": "Heating", "days": map[string]any{"monday": []any{map[string]any{"from": "00:00", "target_temperature": 18}}}})
 	if w, _ := res["now"].(map[string]any)["warning"].(string); !strings.Contains(w, "doesn't show it yet") {
 		t.Errorf("result: %v", res)
 	}
