@@ -136,11 +136,18 @@ func (c *Client) Invalidate() {
 	c.mu.Unlock()
 }
 
+// Changed is Invalidate after a change made with ctx; a dry run changed nothing.
+func (c *Client) Changed(ctx context.Context) {
+	if !IsDryRun(ctx) {
+		c.Invalidate()
+	}
+}
+
 // SetNode changes a product's state: POST /nodes/{type}/{id}.
 func (c *Client) SetNode(ctx context.Context, typ, id string, body Obj) (any, error) {
 	var out any
 	err := c.Post(ctx, "/nodes/"+url.PathEscape(typ)+"/"+url.PathEscape(id), body, &out)
-	c.Invalidate()
+	c.Changed(ctx)
 	return out, err
 }
 
@@ -159,6 +166,10 @@ func (c *Client) Post(ctx context.Context, path string, body, out any) error {
 func (c *Client) Do(ctx context.Context, method, path string, body, out any) error {
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
+	}
+	if d, ok := ctx.Value(dryRunKey{}).(*DryRun); ok && method != http.MethodGet {
+		d.record(PlannedRequest{Method: method, Path: path, Body: body})
+		return nil
 	}
 	var payload []byte
 	if body != nil {

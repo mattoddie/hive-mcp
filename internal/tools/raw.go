@@ -61,7 +61,7 @@ func registerRaw(c *Context) {
 		var out any
 		err = cl.Do(ctx, method, full, a.Body, &out)
 		if method != "GET" {
-			cl.Invalidate()
+			cl.Changed(ctx)
 		}
 		// The account's own profile endpoints return the profile at the top level.
 		if lp := strings.ToLower(p); lp == "/user" || strings.HasPrefix(lp, "/user/") || strings.HasPrefix(lp, "/users") {

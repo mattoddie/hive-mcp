@@ -203,7 +203,7 @@ func registerHome(c *Context) {
 		if err := cl.Do(ctx, "PUT", "/actions/"+url.PathEscape(id), body, nil); err != nil {
 			return nil, err
 		}
-		cl.Invalidate()
+		cl.Changed(ctx)
 		return Obj{"done": true, "name": hive.Name(act), "sent": Obj{"enabled": a.Enabled}}, nil
 	})
 
@@ -259,7 +259,7 @@ func registerHome(c *Context) {
 		if err := cl.Post(ctx, "/holiday-mode", body, nil); err != nil {
 			return nil, err
 		}
-		cl.Invalidate()
+		cl.Changed(ctx)
 		return Obj{"done": true, "start": start.In(loc).Format(time.RFC3339), "end": end.In(loc).Format(time.RFC3339), "temperature": a.Temperature}, nil
 	})
 
@@ -271,7 +271,7 @@ func registerHome(c *Context) {
 		if err := cl.Do(ctx, "DELETE", "/holiday-mode", Obj{}, nil); err != nil {
 			return nil, err
 		}
-		cl.Invalidate()
+		cl.Changed(ctx)
 		return Obj{"done": true, "holiday_mode": "cancelled"}, nil
 	})
 }
