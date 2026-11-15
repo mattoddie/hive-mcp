@@ -9,6 +9,7 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 ### Added
 
 - `hive_set_heating_schedule` (heating zones and TRV zones) and `hive_set_hot_water_schedule` change the weekly schedule. Give periods for only the days that change, by day or with `weekdays`, `weekend` or `every_day`; the rest of the week is kept. Each day takes one to six periods, temperatures are checked against `HIVE_MAX_TEMP`, and the result shows the schedule Hive then has. Both need `HIVE_ALLOW_WRITES`.
+- `hive_set_heat_on_demand` turns heat on demand on or off for a heating zone, so radiator valves can (or can't) turn the boiler on when their rooms need heat. It needs `HIVE_ALLOW_WRITES`.
 - With writes on, the `schedule_review` prompt offers to apply the changes you agree to.
 
 ### Changed

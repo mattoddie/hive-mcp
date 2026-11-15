@@ -112,6 +112,10 @@ Temperatures are 5 °C up to `HIVE_MAX_TEMP` (25 °C unless you change it; Hive 
 
 The hot water is `on` (stays on), `off`, on its `schedule`, or boosting for a set time. `hive_set_hot_water_mode` switches between the first three, and `hive_boost_hot_water` and `hive_cancel_hot_water_boost` handle boosts. Like manual heating, `on` needs `confirm: true`.
 
+### Heat on demand
+
+With heat on demand, Hive radiator valves can turn the boiler on through the thermostat when their rooms are below target, even when the thermostat itself isn't calling for heat. Hive shows this as a boost, which `hive_get_heating` reports with `boost_reason: "heat on demand"`. `hive_set_heat_on_demand` turns it on or off for a heating zone with a thermostat.
+
 ### Schedules
 
 `hive_set_heating_schedule` (for a heating zone or TRV zone) and `hive_set_hot_water_schedule` change the weekly schedule. Give the periods for just the days that change, by day name or with `weekdays`, `weekend` or `every_day`; the other days keep their periods. Each day has one to six periods, each a start time (`HH:MM`, your home's local time) and a temperature (heating) or `on`/`off` (hot water), lasting until the next period starts. Hive only takes a whole week at once, so hive-mcp sends the week with your changes and shows the schedule Hive then has. A zone only follows its schedule in `schedule` mode.

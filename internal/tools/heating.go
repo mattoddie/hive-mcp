@@ -44,6 +44,11 @@ type setHeatingScheduleArgs struct {
 	weekOf[heatingPeriod]
 }
 
+type setHeatOnDemandArgs struct {
+	Zone    string `json:"zone,omitempty" jsonschema:"Heating zone (a Hive thermostat, not a TRV zone), by name or ID. Can be left out when there's only one"`
+	Enabled bool   `json:"enabled" jsonschema:"true to let radiator valves turn the boiler on when their rooms need heat, false to stop them"`
+}
+
 var heatingModes = map[string]string{"schedule": "SCHEDULE", "manual": "MANUAL", "off": "OFF"}
 
 func registerHeating(c *Context) {
@@ -283,6 +288,48 @@ func registerHeating(c *Context) {
 		}
 		return out, err
 	})
+
+	add(c, Def{
+		Toolset: "heating", Name: "hive_set_heat_on_demand", Title: "Set heat on demand",
+		Description: "Turn heat on demand on or off for a heating zone. With it on, Hive radiator valves can turn the boiler on through this zone when their rooms are below target, even when the thermostat isn't calling for heat (Hive shows this as a boost with boost_reason \"heat on demand\"). The setting stays until changed.",
+		Gate:        Write, Idempotent: true,
+	}, func(ctx context.Context, a setHeatOnDemandArgs) (any, error) {
+		n, err := c.nodes(ctx, false)
+		if err != nil {
+			return nil, err
+		}
+		p, err := find(n.Products("heating"), a.Zone, "heating zone with a thermostat")
+		if err != nil {
+			return nil, err
+		}
+		if !supportsHeatOnDemand(p) {
+			return nil, fmt.Errorf("%s doesn't have heat on demand; it needs Hive radiator valves on the same hub", hive.Name(p))
+		}
+		state := "DISABLED"
+		if a.Enabled {
+			state = "ENABLED"
+		}
+		// As pyhiveapi's set_heat_on_demand sends it.
+		return change(ctx, cl, p, Obj{"autoBoost": state}, summarize)
+	})
+}
+
+// supportsHeatOnDemand reports whether a heating zone has the heat on demand
+// setting: Hive reports it in state.autoBoost, and lists the capability.
+func supportsHeatOnDemand(p Obj) bool {
+	if hive.Str(p, "type") != "heating" {
+		return false
+	}
+	if hive.Str(p, "state", "autoBoost") != "" {
+		return true
+	}
+	caps, _ := hive.Get(p, "props", "capabilities").([]any)
+	for _, c := range caps {
+		if c == "TRV_AUTO_BOOST_READY" {
+			return true
+		}
+	}
+	return false
 }
 
 // cancelBoostBody works out what a product goes back to after a boost, as
