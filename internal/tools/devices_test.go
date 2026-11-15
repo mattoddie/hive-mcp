@@ -2,8 +2,11 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/mattoddie/hive-mcp/internal/config"
 	"github.com/mattoddie/hive-mcp/internal/hive"
@@ -58,6 +61,30 @@ func TestSmartDevices(t *testing.T) {
 	}
 }
 
+func TestSetLightReportsAPartialChange(t *testing.T) {
+	env := newEnv(t)
+	env.mock.On("POST", "/nodes/tuneablelight/.*", func(r hivetest.Request, _ []string) (int, any) {
+		if b, _ := r.Body.(map[string]any); b["colourTemperature"] != nil {
+			return 500, map[string]any{"error": "boom"}
+		}
+		return 200, []any{}
+	})
+	res := env.raw("hive_set_light", map[string]any{"light": "living", "brightness": 50, "colour_temperature": 4000})
+	if !res.IsError || len(res.Content) != 2 {
+		t.Fatalf("want an error with the partial result, got %v", res.Content)
+	}
+	if msg := text(res); !strings.Contains(msg, "next change failed") || !strings.Contains(msg, "brightness") {
+		t.Errorf("error: %s", msg)
+	}
+	var partial Obj
+	if err := json.Unmarshal([]byte(res.Content[1].(*mcp.TextContent).Text), &partial); err != nil {
+		t.Fatal(err)
+	}
+	if partial["done"] != "partly" || len(partial["not_sent"].([]any)) != 1 {
+		t.Errorf("partial result: %v", partial)
+	}
+}
+
 func TestRawRequest(t *testing.T) {
 	ro := config.AllTools()
 	ro.AllowWrites = false
@@ -69,7 +96,7 @@ func TestRawRequest(t *testing.T) {
 	if msg := env.callErr("hive_api_request", map[string]any{"method": "POST", "path": "/holiday-mode", "body": map[string]any{}}); !strings.Contains(msg, "HIVE_ALLOW_WRITES") {
 		t.Errorf("post without writes: %s", msg)
 	}
-	for _, p := range []string{"/../x", "nodes", "/nodes?x=1", "//x"} {
+	for _, p := range []string{"/../x", "nodes", "/nodes?x=1", "//x", "/nodes/.", "/nodes/..", "/nodes/%252e%252e", "/nodes%25", "/nodes/%0a", "/nodes/%7f", "/nodes/\tall"} {
 		if msg := env.callErr("hive_api_request", map[string]any{"path": p}); !strings.Contains(msg, "path must") {
 			t.Errorf("%s: %s", p, msg)
 		}

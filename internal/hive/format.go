@@ -2,10 +2,12 @@ package hive
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -206,20 +208,41 @@ func (n *Nodes) Homes() []Obj {
 	return Objs(Get(n.Raw, "homes", "homes"))
 }
 
-// Location is the primary home's time zone, which Hive schedules run in (Europe/London if unknown).
+// Location is the primary home's time zone, which Hive schedules run in
+// (Europe/London if unknown). A zone that can't be loaded is logged, once,
+// because times would otherwise be silently wrong.
 func (n *Nodes) Location() *time.Location {
 	homes := n.Homes()
 	for _, h := range homes {
 		if Bool(h, "primary") || len(homes) == 1 {
-			if loc, err := time.LoadLocation(Str(h, "location", "timeZone")); err == nil && Str(h, "location", "timeZone") != "" {
-				return loc
+			if name := Str(h, "location", "timeZone"); name != "" {
+				if loc, err := loadLocation(name); err == nil {
+					return loc
+				}
 			}
 		}
 	}
-	if loc, err := time.LoadLocation("Europe/London"); err == nil {
+	if loc, err := loadLocation("Europe/London"); err == nil {
 		return loc
 	}
 	return time.UTC
+}
+
+// warnedZones records the time zones whose failure to load has been logged.
+var warnedZones sync.Map
+
+func loadLocation(name string) (*time.Location, error) {
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		if _, seen := warnedZones.LoadOrStore(name, true); !seen {
+			fallback := "Europe/London"
+			if name == fallback {
+				fallback = "UTC"
+			}
+			log.Printf("hive-mcp: warning: can't load the time zone %q (%v), so times use %s instead", name, err, fallback)
+		}
+	}
+	return loc, err
 }
 
 // When formats a Hive timestamp (Unix milliseconds) in the home's time zone.

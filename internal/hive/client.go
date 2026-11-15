@@ -59,11 +59,22 @@ type Client struct {
 	http *http.Client
 	Auth *Auth
 
-	mu      sync.Mutex // guards the cache
-	cache   *Nodes
+	mu    sync.Mutex // guards the fields below
+	cache *Nodes
+	// gen counts Invalidate calls, so a read that was in flight during a
+	// change isn't cached as if it were current.
+	gen uint64
+	// changed is when Invalidate last ran. Hive takes a few seconds to show a
+	// change everywhere, so reads just after one aren't cached either.
+	changed time.Time
+
 	fetchMu sync.Mutex // one /nodes/all request at a time
 	now     func() time.Time
 }
+
+// settleTime is how long after a change reads of /nodes/all aren't cached,
+// because Hive may still be reporting the state from before it.
+const settleTime = 10 * time.Second
 
 // New creates a client and loads any saved tokens.
 func New(cfg config.Hive) (*Client, error) {
@@ -90,13 +101,18 @@ func (c *Client) Nodes(ctx context.Context, fresh bool) (*Nodes, error) {
 	if n := c.cached(fresh); n != nil {
 		return n, nil
 	}
+	c.mu.Lock()
+	gen, settling := c.gen, !c.changed.IsZero() && c.now().Sub(c.changed) < settleTime
+	c.mu.Unlock()
 	var raw Obj
 	if err := c.Get(ctx, "/nodes/all?products=true&devices=true&actions=true", &raw); err != nil {
 		return nil, err
 	}
 	n := &Nodes{Raw: raw, Fetched: c.now()}
 	c.mu.Lock()
-	c.cache = n
+	if c.gen == gen && !settling {
+		c.cache = n
+	}
 	c.mu.Unlock()
 	return n, nil
 }
@@ -110,10 +126,13 @@ func (c *Client) cached(fresh bool) *Nodes {
 	return c.cache
 }
 
-// Invalidate forgets the cached nodes, after a change.
+// Invalidate forgets the cached nodes, after a change. A read already in
+// flight isn't cached, and nor are reads for settleTime afterwards.
 func (c *Client) Invalidate() {
 	c.mu.Lock()
 	c.cache = nil
+	c.gen++
+	c.changed = c.now()
 	c.mu.Unlock()
 }
 

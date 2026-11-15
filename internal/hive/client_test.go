@@ -1,9 +1,12 @@
 package hive_test
 
 import (
+	"bytes"
 	"errors"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -47,6 +50,55 @@ func TestNodesAreCachedBriefly(t *testing.T) {
 	}
 	if got := m.Last("POST").Header.Get("User-Agent"); !strings.HasPrefix(got, "hive-mcp") {
 		t.Errorf("user agent %q", got)
+	}
+}
+
+func TestReadDuringAChangeIsNotCached(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	c := loggedIn(t, m)
+	stale := m.Nodes()
+	// A change lands while /nodes/all is being read: the answer may predate it.
+	m.On("GET", "/nodes/all", func(hivetest.Request, []string) (int, any) {
+		c.Invalidate()
+		return 200, stale
+	})
+	if _, err := c.Nodes(ctx, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Nodes(ctx, false); err != nil {
+		t.Fatal(err)
+	}
+	if n := m.Count("GET", "/nodes/all"); n != 2 {
+		t.Errorf("a read that overlapped a change was cached: %d reads", n)
+	}
+}
+
+func TestReadsJustAfterAChangeAreNotCached(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	c := loggedIn(t, m)
+	now := time.Now()
+	hive.SetClientNow(c, func() time.Time { return now })
+	if _, err := c.SetNode(ctx, "activeplug", hivetest.PlugID, hive.Obj{"status": "OFF"}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := c.Nodes(ctx, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := m.Count("GET", "/nodes/all"); n != 2 {
+		t.Errorf("reads straight after a change were cached: %d reads", n)
+	}
+	now = now.Add(15 * time.Second)
+	for i := 0; i < 2; i++ {
+		if _, err := c.Nodes(ctx, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := m.Count("GET", "/nodes/all"); n != 3 {
+		t.Errorf("reads once Hive has settled should be cached again: %d reads", n)
 	}
 }
 
@@ -237,5 +289,22 @@ func TestRedirectsAreNotFollowed(t *testing.T) {
 	}
 	if hit {
 		t.Error("the redirect was followed, with the token")
+	}
+}
+
+func TestUnknownTimeZoneIsLoggedAndFallsBack(t *testing.T) {
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer log.SetOutput(os.Stderr)
+	n := &hive.Nodes{Raw: hive.Obj{"homes": hive.Obj{"homes": []any{
+		hive.Obj{"primary": true, "location": hive.Obj{"timeZone": "Mars/Olympus_Mons"}},
+	}}}}
+	for i := 0; i < 2; i++ {
+		if got := n.Location().String(); got != "Europe/London" {
+			t.Errorf("location %q", got)
+		}
+	}
+	if got := strings.Count(buf.String(), "can't load the time zone \"Mars/Olympus_Mons\""); got != 1 {
+		t.Errorf("want one warning, got %d: %s", got, buf.String())
 	}
 }

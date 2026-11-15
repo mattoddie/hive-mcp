@@ -282,6 +282,49 @@ func TestServerPicksUpLoginFromAnotherProcess(t *testing.T) {
 	}
 }
 
+func TestRefreshDoesNotOverwriteALoginSavedMeanwhile(t *testing.T) {
+	m := hivetest.New()
+	defer m.Server.Close()
+	server, file := newClient(t, m)
+	login(t, server)
+	old, err := server.Auth.IDToken(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// While the server refreshes, another process saves a new login, and the
+	// server reads it (as any concurrent request would).
+	newID := m.IDToken()
+	m.BeforeCognito = func(action string) {
+		if action != "InitiateAuth" {
+			return
+		}
+		m.BeforeCognito = nil
+		if err := (hive.TokenStore{File: file}).Save(&hive.Tokens{
+			Username: "other@example.com", PoolID: hivetest.PoolID, ClientID: hivetest.ClientID,
+			IDToken: newID, ExpiresAt: time.Now().Add(time.Hour).UnixMilli(),
+		}); err != nil {
+			t.Error(err)
+		}
+		if got, err := server.Auth.IDToken(ctx); err != nil || got != newID {
+			t.Errorf("the server didn't read the new login: %q, %v", got, err)
+		}
+	}
+	got, err := server.Auth.Refresh(ctx, old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != newID {
+		t.Errorf("refresh returned %q, want the new login's token", got)
+	}
+	saved, err := (hive.TokenStore{File: file}).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.IDToken != newID || saved.Username != "other@example.com" {
+		t.Errorf("the old login's refresh overwrote the new login: %+v", saved)
+	}
+}
+
 func TestLogoutForgetsDevice(t *testing.T) {
 	m := hivetest.New()
 	defer m.Server.Close()

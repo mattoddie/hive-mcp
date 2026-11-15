@@ -39,6 +39,9 @@ type Context struct {
 	// audited maps each tool whose calls can change things to a test of
 	// whether a call does, for the audit log.
 	audited map[string]func(json.RawMessage) bool
+	// tools records the registered tools, so prompts are only offered when
+	// the tools they use are.
+	tools map[string]bool
 }
 
 // Info describes a registered tool.
@@ -154,10 +157,17 @@ func add[In any](c *Context, d Def, h func(ctx context.Context, in In) (any, err
 	mcp.AddTool(c.Server, tool, func(ctx context.Context, _ *mcp.CallToolRequest, in In) (*mcp.CallToolResult, any, error) {
 		out, err := h(ctx, in)
 		if err != nil {
-			return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "Error: " + err.Error()}}, IsError: true}, nil, nil
+			// A handler that fails part way returns what it did as well, so the
+			// model knows what changed.
+			res := &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "Error: " + err.Error()}}, IsError: true}
+			if out != nil {
+				res.Content = append(res.Content, textResult(out).Content...)
+			}
+			return res, nil, nil
 		}
 		return textResult(out), nil, nil
 	})
+	c.tools[d.Name] = true
 	if c.Registered != nil {
 		c.Registered[d.Name] = Info{Toolset: d.Toolset, Gate: d.Gate}
 	}

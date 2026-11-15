@@ -106,7 +106,7 @@ List the Hive hardware: hub, thermostats, boiler module, radiator valves (TRVs),
 
 ### hive_set_holiday_mode
 
-🟠 write
+🟠 write · destructive
 
 Set holiday mode: from start (default now) until end, the heating holds one temperature, then the normal settings resume. It lasts at most 60 days. Replaces any holiday mode already set. Confirm the dates and temperature with the user first.
 
@@ -186,7 +186,7 @@ List the Hive radiator valves (TRVs) by zone: each zone's temperature, target an
 
 ### hive_set_heating_mode
 
-🟠 write
+🟠 write · destructive
 
 Switch a zone between schedule (follow the weekly schedule), manual (hold one temperature) and off (frost protection only). Cancels a boost. Manual lasts indefinitely, so it needs confirm: true; prefer hive_boost_heating for a temporary change.
 

@@ -21,6 +21,9 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	// Embed the time zone database: Windows has none, and Hive schedules run
+	// in the home's local time.
+	_ "time/tzdata"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 

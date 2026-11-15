@@ -160,7 +160,8 @@ func registerHeating(c *Context) {
 	add(c, Def{
 		Toolset: "heating", Name: "hive_set_heating_mode", Title: "Set heating mode",
 		Description: "Switch a zone between schedule (follow the weekly schedule), manual (hold one temperature) and off (frost protection only). Cancels a boost. Manual lasts indefinitely, so it needs confirm: true; prefer hive_boost_heating for a temporary change.",
-		Gate:        Write, Idempotent: true,
+		// Destructive: it can turn the heating off.
+		Gate: Write, Idempotent: true, Destructive: true,
 		Enums:  map[string][]string{"mode": {"schedule", "manual", "off"}},
 		Ranges: map[string][2]float64{"temperature": c.tempRange()},
 	}, func(ctx context.Context, a setModeArgs) (any, error) {

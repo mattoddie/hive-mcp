@@ -93,10 +93,11 @@ func TestHolidayMode(t *testing.T) {
 		t.Errorf("get: %v", got)
 	}
 	for args, want := range map[string]map[string]any{
-		"end must be after start": {"start": "2030-01-08", "end": "2030-01-01", "temperature": 10},
-		"steps of 0.5":            {"end": future, "temperature": 10.2},
-		"not a date":              {"end": "soon", "temperature": 10},
-		"at most 60 days":         {"start": "2030-01-01", "end": "2030-03-03", "temperature": 10},
+		"end must be after start":         {"start": "2030-01-08", "end": "2030-01-01", "temperature": 10},
+		"steps of 0.5":                    {"end": future, "temperature": 10.2},
+		"not a date":                      {"end": "soon", "temperature": 10},
+		"at most 60 days":                 {"start": "2030-01-01", "end": "2030-03-03", "temperature": 10},
+		"end must be by 2030-11-30T12:00": {"start": "2030-10-01T12:00", "end": "2030-11-30T12:01", "temperature": 10},
 	} {
 		if msg := env.callErr("hive_set_holiday_mode", want); !strings.Contains(msg, args) {
 			t.Errorf("%v: %s", want, msg)
@@ -149,4 +150,10 @@ func TestAuthToolsLogInWithSMSCode(t *testing.T) {
 	if env.obj("hive_get_overview", nil)["heating"] == nil {
 		t.Error("overview after login")
 	}
+}
+
+func TestHolidayLimitCountsCalendarDays(t *testing.T) {
+	env := newEnv(t)
+	// 60 days across the October clock change is 60 days and an hour.
+	env.obj("hive_set_holiday_mode", map[string]any{"start": "2030-10-01T12:00", "end": "2030-11-30T12:00", "temperature": 10})
 }

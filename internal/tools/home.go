@@ -32,9 +32,10 @@ func (c *Context) nodes(ctx context.Context, fresh bool) (*hive.Nodes, error) {
 	return c.Client.Nodes(ctx, fresh)
 }
 
-// maxHoliday caps holiday mode, so a mistaken end date can't leave the heating
-// at one temperature for months.
-const maxHoliday = 60 * 24 * time.Hour
+// maxHolidayDays caps holiday mode, so a mistaken end date can't leave the
+// heating at one temperature for months. It counts calendar days in the
+// home's time zone, so a holiday across a clock change isn't an hour short.
+const maxHolidayDays = 60
 
 func registerHome(c *Context) {
 	cl := c.Client
@@ -173,7 +174,8 @@ func registerHome(c *Context) {
 	add(c, Def{
 		Toolset: "home", Name: "hive_set_holiday_mode", Title: "Set holiday mode",
 		Description: "Set holiday mode: from start (default now) until end, the heating holds one temperature, then the normal settings resume. It lasts at most 60 days. Replaces any holiday mode already set. Confirm the dates and temperature with the user first.",
-		Gate:        Write, Idempotent: true, Ranges: map[string][2]float64{"temperature": c.tempRange()},
+		// Not idempotent: start defaults to now, so a repeat moves it.
+		Gate: Write, Destructive: true, Ranges: map[string][2]float64{"temperature": c.tempRange()},
 	}, func(ctx context.Context, a setHolidayArgs) (any, error) {
 		if err := checkTemperature("temperature", a.Temperature, c.maxTemp()); err != nil {
 			return nil, err
@@ -196,8 +198,8 @@ func registerHome(c *Context) {
 		if !end.After(start) || !end.After(time.Now()) {
 			return nil, errors.New("end must be after start and in the future")
 		}
-		if end.Sub(start) > maxHoliday {
-			return nil, fmt.Errorf("holiday mode can last at most %d days; end must be by %s", int(maxHoliday.Hours()/24), start.Add(maxHoliday).In(loc).Format("2006-01-02T15:04"))
+		if limit := start.In(loc).AddDate(0, 0, maxHolidayDays); end.After(limit) {
+			return nil, fmt.Errorf("holiday mode can last at most %d days; end must be by %s", maxHolidayDays, limit.Format("2006-01-02T15:04"))
 		}
 		body := Obj{"start": start.UnixMilli(), "end": end.UnixMilli(), "temperature": a.Temperature}
 		if err := cl.Post(ctx, "/holiday-mode", body, nil); err != nil {

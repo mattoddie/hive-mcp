@@ -84,7 +84,7 @@ The server includes five prompts. Each one is a ready-made, multi-step request t
 | `going_away` | `leave` (optional), `return` | Suggests a holiday temperature and end time, and what to switch off, then sets it after you agree. |
 | `schedule_review` | | Reviews the heating and hot water schedules for comfort and wasted energy, and suggests changes to make in the Hive app. |
 
-The prompts that change things need writes enabled, and ask first.
+The prompts that change things (`warm_up`, `hot_water_now` and `going_away`) are only offered when writes are enabled, and ask first. A prompt is also left out when its toolset is turned off.
 
 ## Making changes
 
@@ -114,7 +114,7 @@ The hot water is `on` (stays on), `off`, on its `schedule`, or boosting for a se
 
 ### Holiday mode
 
-`hive_set_holiday_mode` holds the heating at one temperature from a start time (default now) to an end time, given as `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM` in your home's local time. It can last at most 60 days. `hive_cancel_holiday_mode` ends it straight away.
+`hive_set_holiday_mode` holds the heating at one temperature from a start time (default now) to an end time, given as `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM` in your home's local time. It can last at most 60 days, counted as calendar days in your home's time zone. `hive_cancel_holiday_mode` ends it straight away.
 
 ### Plugs and lights
 
