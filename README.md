@@ -29,7 +29,7 @@ An open-source [Model Context Protocol](https://modelcontextprotocol.io) server 
 > **"Yes, and put the hot water on too, I want a bath."**
 > *Done: the heating is boosting to 21 °C until 15:40, and the hot water is boosting for 30 minutes. By the way, the bedroom radiator valve's battery is down to 20%.*
 
-Ask about your home in plain English. The assistant picks from **24 tools** to look things up and, if you allow it, make changes. Some examples:
+Ask about your home in plain English. The assistant picks from **29 tools** to look things up and, if you allow it, make changes. Some examples:
 
 - 🌡️ *"How warm is each room, and is the heating on?"*
 - 🔥 *"Boost the heating to 21 for an hour."*
