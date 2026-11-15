@@ -39,8 +39,8 @@ func registerRaw(c *Context) {
 			return nil, errors.New("path is not validly percent-encoded")
 		}
 		p = strings.TrimPrefix(p, "/1.0")
-		if !strings.HasPrefix(p, "/") || strings.Contains(p, "..") || strings.ContainsAny(p, "?#\\") || strings.Contains(p, "//") || strings.Contains(p, "/./") {
-			return nil, errors.New("path must start with /, must not contain '..', './' or '//' segments, and must not include a query string (use query)")
+		if err := checkRawPath(p); err != nil {
+			return nil, err
 		}
 		switch {
 		case method == "GET":
@@ -69,6 +69,24 @@ func registerRaw(c *Context) {
 		}
 		return redactPII(out), err
 	})
+}
+
+// checkRawPath refuses a decoded path that could reach somewhere other than
+// the API path it appears to name.
+func checkRawPath(p string) error {
+	if !strings.HasPrefix(p, "/") || strings.Contains(p, "..") || strings.ContainsAny(p, "?#\\") || strings.Contains(p, "//") ||
+		strings.Contains(p, "/./") || strings.HasSuffix(p, "/.") {
+		return errors.New("path must start with /, must not contain '..', '.' or '//' segments, and must not include a query string (use query)")
+	}
+	if strings.Contains(p, "%") {
+		return errors.New("path must not be percent-encoded twice")
+	}
+	for _, r := range p {
+		if r < 0x20 || r == 0x7f {
+			return errors.New("path must not contain control characters")
+		}
+	}
+	return nil
 }
 
 func toString(v any) string {

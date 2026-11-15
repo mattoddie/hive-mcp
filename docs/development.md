@@ -15,7 +15,7 @@ This page is for people working on hive-mcp itself. Start with [CONTRIBUTING.md]
 
 ## Setup
 
-You need Go 1.25 or later, and Docker for building the image.
+You need Go 1.26 or later, and Docker for building the image.
 
 ```sh
 git clone https://github.com/mattoddie/hive-mcp.git
@@ -48,7 +48,7 @@ internal/
 │   ├── srp.go           # Cognito's SRP-6a: user and device password claims, device verifiers
 │   ├── cognito.go       # the few Cognito calls the login needs, as plain JSON over HTTP; reading Hive's sign-in page
 │   ├── auth.go          # login with SMS code, remembered device, refresh, device re-login, the token file
-│   ├── client.go        # Client: ID token auth, refresh on 401/403, retries on 429/503, the /nodes/all cache
+│   ├── client.go        # Client: ID token auth, refresh on 401, retries on 429/502/503, the /nodes/all cache
 │   ├── format.go        # helpers to read Hive's objects, schedules, and compact summaries
 │   ├── testdata/        # SRP test vectors generated with pyhiveapi's own code
 │   └── hivetest/        # an in-process fake Hive: sign-in page, Cognito (with real SRP checks) and the API
@@ -69,8 +69,8 @@ internal/
 1. An MCP client calls a tool, for example `hive_boost_heating {zone: "Heating", temperature: 21, minutes: 60}`.
 2. The MCP SDK validates the arguments against the tool's JSON Schema, which was inferred from its Go input struct (with enums and minimum/maximum from the `Def`), and decodes them into that struct.
 3. The handler registered by `add()` runs. It validates further (steps of 0.5 °C), reads the home with `Client.Nodes()`, which may come from the short cache, and finds the zone by name.
-4. `change()` sends `POST /nodes/heating/<id>` with `{"mode":"BOOST","boost":60,"target":21}`, which clears the cache, then reads the home again so the result shows the new state.
-5. `hive.Client` gets an ID token from `Auth` (refreshing it first if it's about to expire), sends it as the bare `Authorization` header, and unwraps the JSON. On `401` or `403` it refreshes once and retries. On `429`, `502` or `503` it waits and retries up to three times. Other failures become a `hive.Error` with Hive's message and a hint.
+4. `change()` sends `POST /nodes/heating/<id>` with `{"mode":"BOOST","boost":60,"target":21}`, which clears the cache, then reads the home again so the result shows the new state. Hive can take a few seconds to show a change, so reads in the ten seconds after one, and a read that was already under way when it was made, aren't cached.
+5. `hive.Client` gets an ID token from `Auth` (refreshing it first if it's about to expire), sends it as the bare `Authorization` header, and unwraps the JSON. On `401` it refreshes once and retries; a `403` is about the request rather than the token, so it isn't retried. On `429` it waits and retries up to three times, and on `502` or `503` too, except for a `POST`, which Hive may already have acted on. Other failures become a `hive.Error` with Hive's message and a hint.
 6. `add()` serialises the value to indented JSON text. A returned error becomes `isError: true` with the message, so the model can see what went wrong and adjust.
 
 ## How login works in the code

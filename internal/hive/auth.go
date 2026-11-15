@@ -342,6 +342,7 @@ func (a *Auth) Refresh(ctx context.Context, rejected string) (string, error) {
 	}
 	var refreshToken string
 	var device *Device
+	base := t // what the refreshed tokens replace; see accept
 	if t != nil {
 		refreshToken = t.RefreshToken
 		device = a.deviceLocked()
@@ -359,7 +360,7 @@ func (a *Auth) Refresh(ctx context.Context, rejected string) (string, error) {
 		}
 		res, err := c.initiateAuth(ctx, "REFRESH_TOKEN_AUTH", params)
 		if err == nil && res.AuthenticationResult != nil {
-			return a.accept(c, res.AuthenticationResult, nil, false, true)
+			return a.accept(c, res.AuthenticationResult, base, nil, false, true)
 		}
 		if err == nil {
 			err = fmt.Errorf("unexpected %s challenge when refreshing the login", res.ChallengeName)
@@ -393,6 +394,7 @@ func (a *Auth) relogin(ctx context.Context) (string, error) {
 	device := a.deviceLocked()
 	noMFA := a.tokens != nil && a.tokens.NoMFA
 	failed := a.reloginFailed
+	base := a.tokens // what the new tokens replace; see accept
 	a.mu.Unlock()
 
 	switch {
@@ -427,7 +429,7 @@ func (a *Auth) relogin(ctx context.Context) (string, error) {
 		a.mu.Unlock()
 		return "", a.fail(loginError(err))
 	}
-	return a.accept(c, res.AuthenticationResult, &Tokens{Username: username, NoMFA: device == nil}, true, true)
+	return a.accept(c, res.AuthenticationResult, base, &Tokens{Username: username, NoMFA: device == nil}, true, true)
 }
 
 func (a *Auth) fail(err error) error {
@@ -582,6 +584,7 @@ func (a *Auth) StartLogin(ctx context.Context) (*LoginResult, error) {
 	username, password := normaliseUsername(a.cfg.Username), a.cfg.Password
 	device := a.deviceLocked()
 	failed, sent := a.loginFailed, a.codeSent
+	base := a.tokens
 	a.mu.Unlock()
 	if username == "" || password == "" {
 		return nil, errors.New("set HIVE_USERNAME (the email address you use in the Hive app) and HIVE_PASSWORD before logging in")
@@ -625,7 +628,7 @@ func (a *Auth) StartLogin(ctx context.Context) (*LoginResult, error) {
 	}
 	switch {
 	case res.AuthenticationResult != nil:
-		if _, err := a.accept(c, res.AuthenticationResult, &Tokens{Username: username, NoMFA: device == nil}, device != nil, false); err != nil {
+		if _, err := a.accept(c, res.AuthenticationResult, base, &Tokens{Username: username, NoMFA: device == nil}, device != nil, false); err != nil {
 			return nil, err
 		}
 		out := a.loginResult(username)
@@ -704,8 +707,9 @@ func (a *Auth) CompleteLogin(ctx context.Context, code string) (*LoginResult, er
 	}
 	a.mu.Lock()
 	a.pending = nil
+	base := a.tokens
 	a.mu.Unlock()
-	if _, err := a.accept(p.cognito, res.AuthenticationResult, &Tokens{Username: p.username}, false, false); err != nil {
+	if _, err := a.accept(p.cognito, res.AuthenticationResult, base, &Tokens{Username: p.username}, false, false); err != nil {
 		return nil, err
 	}
 	return a.loginResult(p.username), nil
@@ -721,18 +725,18 @@ func (a *Auth) loginResult(username string) *LoginResult {
 }
 
 // accept stores new tokens, registers a new device when Cognito offers one,
-// and saves everything before handing out the ID token. login carries the
-// username and flags of a fresh login; nil means a refresh. keepDevice keeps
-// the remembered device when Cognito doesn't send a new one. auto marks a
-// refresh or login the server made by itself, which must not bring back a
-// login that was deleted (logged out) or replaced while it ran.
-func (a *Auth) accept(c *cognito, r *authenticationResult, login *Tokens, keepDevice, auto bool) (string, error) {
+// and saves everything before handing out the ID token. base is the tokens
+// the caller read before asking Cognito: the new ones carry over its
+// refresh token and device. login carries the username and flags of a fresh
+// login; nil means a refresh. keepDevice keeps the remembered device when
+// Cognito doesn't send a new one. auto marks a refresh or login the server
+// made by itself, which must not bring back a login that was deleted (logged
+// out) or replaced while it ran. base has to be read before the Cognito call
+// for that: read afterwards, it could already be the replacement.
+func (a *Auth) accept(c *cognito, r *authenticationResult, base, login *Tokens, keepDevice, auto bool) (string, error) {
 	if r.IdToken == "" {
 		return "", a.fail(errors.New("hive's login service returned no ID token"))
 	}
-	a.mu.Lock()
-	base := a.tokens
-	a.mu.Unlock()
 	old := base
 	if old == nil {
 		old = &Tokens{}

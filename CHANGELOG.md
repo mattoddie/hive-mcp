@@ -6,6 +6,22 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** The prompts are offered only when the tools they use are: `warm_up`, `hot_water_now` and `going_away` need writes enabled, and a prompt is left out when its toolset is turned off.
+- `hive_set_holiday_mode` and `hive_set_heating_mode` are annotated as destructive, since they can turn the heating down or off, and `hive_set_holiday_mode` is no longer marked idempotent, since its start defaults to now.
+- Building from source needs Go 1.26 or later.
+
+### Fixed
+
+- Times are no longer shown in UTC on Windows. The time zone database is now built in, since Windows has none, and a time zone that can't be loaded is logged instead of silently replaced.
+- A reading of the home that was under way when a change was made, or that was made in the few seconds after it, is no longer cached, so tools don't show the state from before the change for up to `HIVE_CACHE_SECONDS`.
+- When another process (such as `hive-mcp login`) saves a new login while the server is refreshing its tokens, the server keeps the new login instead of overwriting it with the old one.
+- `hive_set_light` with both a brightness and a colour temperature reports what changed when only the first change goes through, instead of just the error.
+- Holiday mode's 60-day limit counts calendar days in the home's time zone, so 60 days across the October clock change is no longer refused.
+- `hive_api_request` refuses paths with control characters, percent signs left after decoding (double encoding) or a trailing `/.`.
+- The docs now say the raw API tool skips `HIVE_MAX_TEMP` and the holiday limit, and describe correctly when the client refreshes the login and retries.
+
 ## [0.4.0] - 2026-11-15
 
 ### Added

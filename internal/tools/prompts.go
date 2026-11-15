@@ -11,7 +11,10 @@ import (
 type prompt struct {
 	name, title, description string
 	args                     []*mcp.PromptArgument
-	text                     func(args map[string]string) string
+	// needs lists the tools the prompt relies on: it's only offered when
+	// they're all registered, so a read-only server has no prompts that change things.
+	needs []string
+	text  func(args map[string]string) string
 }
 
 func or(v, fallback string) string {
@@ -25,6 +28,7 @@ var prompts = []prompt{
 	{
 		name: "home_check", title: "Home check",
 		description: "A quick check of the home: temperatures, what the heating and hot water are doing, holiday mode, and any low batteries or offline devices.",
+		needs:       []string{"hive_get_overview"},
 		text: func(map[string]string) string {
 			return `Check on my home with Hive.
 1. hive_get_overview (fresh: true): heating zones, hot water, plugs, lights, sensors, holiday mode and anything needing attention.
@@ -35,6 +39,7 @@ Report: a one-line verdict, then each room's temperature against its target and 
 	{
 		name: "warm_up", title: "Warm the house up",
 		description: "Boost the heating to a comfortable temperature for a while, checking the current state first.",
+		needs:       []string{"hive_get_heating", "hive_boost_heating"},
 		args: []*mcp.PromptArgument{
 			{Name: "temperature", Description: "Temperature to boost to in °C (default 21)"},
 			{Name: "minutes", Description: "How long for, in minutes (default 60)"},
@@ -50,6 +55,7 @@ Report: a one-line verdict, then each room's temperature against its target and 
 	{
 		name: "hot_water_now", title: "Hot water now",
 		description: "Get hot water for a bath or shower: check whether it's already on and boost it if not.",
+		needs:       []string{"hive_get_hot_water", "hive_boost_hot_water"},
 		args:        []*mcp.PromptArgument{{Name: "minutes", Description: "How long to heat the water for, in minutes (default 30)"}},
 		text: func(a map[string]string) string {
 			return fmt.Sprintf(`I need hot water soon.
@@ -61,6 +67,7 @@ Report: a one-line verdict, then each room's temperature against its target and 
 	{
 		name: "going_away", title: "Going away",
 		description: "Set the home up for a trip: holiday mode with a frost-safe temperature, and a check of anything left on.",
+		needs:       []string{"hive_get_overview", "hive_set_holiday_mode"},
 		args: []*mcp.PromptArgument{
 			{Name: "leave", Description: "When you leave (YYYY-MM-DD or YYYY-MM-DDTHH:MM; default now)"},
 			{Name: "return", Description: "When you're back (YYYY-MM-DD or YYYY-MM-DDTHH:MM)", Required: true},
@@ -76,6 +83,7 @@ Report: a one-line verdict, then each room's temperature against its target and 
 	{
 		name: "schedule_review", title: "Review heating schedules",
 		description: "Review the heating and hot water schedules for comfort and wasted energy, and suggest changes.",
+		needs:       []string{"hive_get_heating_schedule"},
 		text: func(map[string]string) string {
 			return `Review my heating and hot water schedules.
 1. hive_get_heating_schedule for each heating zone and TRV zone (see hive_get_heating for the zones), and hive_get_hot_water_schedule.
@@ -86,10 +94,18 @@ Don't change anything: hive-mcp can't edit schedules, so I'll make any changes i
 	},
 }
 
-func registerPrompts(s *mcp.Server) {
+// registerPrompts adds the prompts whose tools are all registered.
+func registerPrompts(c *Context) {
 	for _, p := range prompts {
 		p := p
-		s.AddPrompt(&mcp.Prompt{Name: p.name, Title: p.title, Description: p.description, Arguments: p.args},
+		missing := false
+		for _, t := range p.needs {
+			missing = missing || !c.tools[t]
+		}
+		if missing {
+			continue
+		}
+		c.Server.AddPrompt(&mcp.Prompt{Name: p.name, Title: p.title, Description: p.description, Arguments: p.args},
 			func(_ context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 				args := map[string]string{}
 				if req.Params != nil {

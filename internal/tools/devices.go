@@ -142,10 +142,19 @@ func registerDevices(c *Context) {
 		}
 		// One change per request, as the Hive app and pyhiveapi send them.
 		var out any
-		for _, b := range bodies {
-			if out, err = change(ctx, cl, p, b, lightSummary); err != nil {
-				return nil, err
+		for i, b := range bodies {
+			next, err := change(ctx, cl, p, b, lightSummary)
+			if err != nil {
+				if i == 0 {
+					return nil, err
+				}
+				// The first change went through: say so, with the light's state.
+				o := out.(Obj)
+				o["done"] = "partly"
+				o["not_sent"] = bodies[i:]
+				return o, fmt.Errorf("%s took %v, but the next change failed: %w", hive.Name(p), bodies[0], err)
 			}
+			out = next
 		}
 		if len(bodies) > 1 {
 			o := out.(Obj)

@@ -121,6 +121,48 @@ func TestPrompts(t *testing.T) {
 	}
 }
 
+func TestPromptsFollowTheTools(t *testing.T) {
+	list := func(o config.Tools) map[string]bool {
+		env := newEnv(t, o)
+		out := map[string]bool{}
+		for p, err := range env.session.Prompts(context.Background(), nil) {
+			if err != nil {
+				t.Fatal(err)
+			}
+			out[p.Name] = true
+		}
+		return out
+	}
+	readOnly := config.AllTools()
+	readOnly.AllowWrites = false
+	got := list(readOnly)
+	for _, name := range []string{"warm_up", "hot_water_now", "going_away"} {
+		if got[name] {
+			t.Errorf("%s offered without writes", name)
+		}
+	}
+	if !got["home_check"] || !got["schedule_review"] {
+		t.Errorf("read prompts missing: %v", got)
+	}
+	water := config.AllTools()
+	water.Toolsets = map[string]bool{"hotwater": true}
+	if got := list(water); len(got) != 1 || !got["hot_water_now"] {
+		t.Errorf("prompts with only the hotwater toolset: %v", got)
+	}
+}
+
+func TestChangesThatCanTurnThingsOffAreDestructive(t *testing.T) {
+	tools := toolNames(t, newEnv(t).session)
+	for _, name := range []string{"hive_set_holiday_mode", "hive_set_heating_mode"} {
+		if a := tools[name].Annotations; !*a.DestructiveHint {
+			t.Errorf("%s should be destructive: %+v", name, a)
+		}
+	}
+	if tools["hive_set_holiday_mode"].Annotations.IdempotentHint {
+		t.Error("hive_set_holiday_mode isn't idempotent: its start defaults to now")
+	}
+}
+
 func TestToolErrorsAreToolResults(t *testing.T) {
 	env := newEnv(t)
 	msg := env.callErr("hive_get_heating_schedule", map[string]any{"zone": "Kitchen"})

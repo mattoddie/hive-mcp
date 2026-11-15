@@ -99,33 +99,6 @@
       "text": "Check on my home with Hive.\n1. hive_get_overview (fresh: true): heating zones, hot water, plugs, lights, sensors, holiday mode and anything needing attention.\n2. If any radiator valves are listed, hive_list_trvs for their batteries and calibration.\nReport: a one-line verdict, then each room's temperature against its target and what it's doing (schedule, manual, off or boost), the hot water, and a short to-do list (batteries to replace, offline devices, discontinued hardware). Keep healthy things to one line. Don't change anything."
     },
     {
-      "name": "warm_up",
-      "description": "Boost the heating to a comfortable temperature for a while, checking the current state first.",
-      "arguments": [
-        "temperature",
-        "minutes",
-        "zone"
-      ],
-      "text": "I'd like to warm the house up to 21 °C for 60 minutes (zone: the main heating zone).\n1. hive_get_heating: check the current temperature, target and mode for that zone. If it's already at or above that temperature, or already boosting, tell me and ask what I want.\n2. Show me what you'll do (zone, temperature, minutes, and what it goes back to afterwards) and wait for my go-ahead.\n3. hive_boost_heating, then confirm the new state."
-    },
-    {
-      "name": "hot_water_now",
-      "description": "Get hot water for a bath or shower: check whether it's already on and boost it if not.",
-      "arguments": [
-        "minutes"
-      ],
-      "text": "I need hot water soon.\n1. hive_get_hot_water: is it already heating, or due on shortly in its schedule?\n2. If it's off and not due on within 15 minutes, boost it for 30 minutes with hive_boost_hot_water. Otherwise tell me when it comes on.\n3. Tell me what you did and when it will go back to normal."
-    },
-    {
-      "name": "going_away",
-      "description": "Set the home up for a trip: holiday mode with a frost-safe temperature, and a check of anything left on.",
-      "arguments": [
-        "leave",
-        "return"
-      ],
-      "text": "I'm going away from now until ${arguments.return}.\n1. hive_get_overview: current heating and hot water, holiday mode, and plugs or lights that are on.\n2. Suggest a holiday temperature (usually 7 to 12 °C to protect pipes; higher if there are pets or plants that need it) and a return time a couple of hours before I'm back, so the house is warm when I arrive.\n3. Show me the plan, including any plugs or lights you'd switch off, and wait for my go-ahead.\n4. hive_set_holiday_mode, then switch off what I agreed to with hive_set_plug or hive_set_light, and confirm."
-    },
-    {
       "name": "schedule_review",
       "description": "Review the heating and hot water schedules for comfort and wasted energy, and suggest changes.",
       "arguments": [],

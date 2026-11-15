@@ -61,7 +61,7 @@ Older guides and versions of pyhiveapi used `beekeeper-uk.hivehome.com` and Hive
 | Component | Requirement |
 |---|---|
 | Docker image | `linux/amd64` or `linux/arm64` (for example Raspberry Pi 4/5) |
-| Go (to build without Docker) | 1.25 or later |
+| Go (to build without Docker) | 1.26 or later |
 | Operating system for the binary | Linux and macOS. Windows should work, but isn't tested. |
 | Network | Outbound HTTPS to `beekeeper.hivehome.com`, `sso.hivehome.com` and `cognito-idp.eu-west-1.amazonaws.com` |
 | MCP clients | Any client supporting Streamable HTTP or stdio. See [Connecting MCP clients](clients.md). |

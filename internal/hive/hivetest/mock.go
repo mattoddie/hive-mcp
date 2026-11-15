@@ -95,6 +95,10 @@ type Mock struct {
 	Cognito []string
 	// SSOHits counts requests for the sign-in page.
 	SSOHits int
+	// BeforeCognito, when set, runs at the start of each Cognito call with
+	// its action (such as "InitiateAuth"), before the mock handles it, so a
+	// test can change things while a login or refresh is in flight.
+	BeforeCognito func(action string)
 }
 
 // New starts a mock with the sample home. Close it with m.Server.Close().
@@ -373,6 +377,9 @@ func (m *Mock) tokens(deviceKey string, offerDevice bool) map[string]any {
 
 func (m *Mock) cognito(w http.ResponseWriter, r *http.Request) {
 	action := strings.TrimPrefix(r.Header.Get("X-Amz-Target"), "AWSCognitoIdentityProviderService.")
+	if m.BeforeCognito != nil {
+		m.BeforeCognito(action)
+	}
 	var in struct {
 		AuthFlow                   string
 		ClientId                   string
