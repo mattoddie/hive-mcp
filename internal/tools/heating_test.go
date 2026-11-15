@@ -1,6 +1,8 @@
 package tools
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -137,5 +139,86 @@ func TestMaxTempIsConfigurable(t *testing.T) {
 	env = newEnv(t, o)
 	if msg := env.callErr("hive_set_heating_mode", map[string]any{"zone": "Bedroom", "mode": "manual", "confirm": true}); !strings.Contains(msg, "HIVE_MAX_TEMP") {
 		t.Errorf("current target above the limit: %s", msg)
+	}
+}
+
+func TestSetHeatingSchedule(t *testing.T) {
+	env := newEnv(t)
+	res := env.obj("hive_set_heating_schedule", map[string]any{
+		"zone":     "Heating",
+		"weekdays": []any{map[string]any{"from": "00:00", "target_temperature": 16}, map[string]any{"from": "07:00", "target_temperature": 20.5}},
+		"friday":   []any{map[string]any{"from": "07:00", "target_temperature": 19}, map[string]any{"from": "00:00", "target_temperature": 15}},
+	})
+	sched := env.mock.Product(hivetest.HeatingID)["state"].(map[string]any)["schedule"].(map[string]any)
+	mon, _ := json.Marshal(sched["monday"])
+	fri, _ := json.Marshal(sched["friday"])
+	sun, _ := json.Marshal(sched["sunday"])
+	if string(mon) != `[{"start":0,"value":{"target":16}},{"start":420,"value":{"target":20.5}}]` ||
+		string(fri) != `[{"start":0,"value":{"target":15}},{"start":420,"value":{"target":19}}]` {
+		t.Errorf("sent monday %s friday %s", mon, fri)
+	}
+	if string(sun) != `[{"start":390,"value":{"target":20}},{"start":510,"value":{"target":16}},{"start":1020,"value":{"target":21}},{"start":1350,"value":{"target":16}}]` {
+		t.Errorf("sunday should be kept: %s", sun)
+	}
+	if got := res["days_changed"].([]any); len(got) != 5 {
+		t.Errorf("days changed: %v", got)
+	}
+	now := res["now"].(map[string]any)
+	if now["warning"] != nil || now["week"].(map[string]any)["monday"] == nil {
+		t.Errorf("result: %v", res)
+	}
+	if res["sent"] != nil {
+		t.Error("the whole week shouldn't be repeated")
+	}
+
+	// TRV zones have schedules too, and a zone not in schedule mode says so.
+	res = env.obj("hive_set_heating_schedule", map[string]any{"zone": "Bedroom", "sunday": []any{map[string]any{"from": "00:00", "target_temperature": 18}}})
+	if res["note_mode"] == nil || !strings.HasPrefix(env.lastBody(), "/nodes/trvcontrol/") {
+		t.Errorf("TRV schedule: %v", res)
+	}
+
+	before := env.posts()
+	for want, args := range map[string]map[string]any{
+		"not a time of day":   {"zone": "Heating", "monday": []any{map[string]any{"from": "7am", "target_temperature": 20}}},
+		"steps of 0.5":        {"zone": "Heating", "monday": []any{map[string]any{"from": "00:00", "target_temperature": 20.2}}},
+		"two periods start":   {"zone": "Heating", "monday": []any{map[string]any{"from": "00:00", "target_temperature": 20}, map[string]any{"from": "00:00", "target_temperature": 18}}},
+		"at most 6 periods":   {"zone": "Heating", "monday": sevenPeriods()},
+		"at least one period": {"zone": "Heating", "monday": []any{}},
+		"nothing to change":   {"zone": "Heating"},
+		"24:00":               {"zone": "Heating", "monday": []any{map[string]any{"from": "24:00", "target_temperature": 20}}},
+	} {
+		msg := ""
+		if res := env.raw("hive_set_heating_schedule", args); res.IsError {
+			msg = text(res)
+		}
+		if want == "24:00" {
+			want = "not a time of day"
+		}
+		if !strings.Contains(msg, want) {
+			t.Errorf("%v: %q", args, msg)
+		}
+	}
+	if !env.rejects("hive_set_heating_schedule", map[string]any{"zone": "Heating", "monday": []any{map[string]any{"from": "00:00", "target_temperature": 26}}}) {
+		t.Error("26 °C accepted")
+	}
+	if env.posts() != before {
+		t.Error("an invalid schedule reached Hive")
+	}
+}
+
+func sevenPeriods() []any {
+	var out []any
+	for i := 0; i < 7; i++ {
+		out = append(out, map[string]any{"from": fmt.Sprintf("%02d:00", i), "target_temperature": 20})
+	}
+	return out
+}
+
+func TestSetScheduleWarnsWhenHiveDoesNotStoreIt(t *testing.T) {
+	env := newEnv(t)
+	env.mock.On("POST", "/nodes/heating/.*", hivetest.JSON([]any{}))
+	res := env.obj("hive_set_heating_schedule", map[string]any{"zone": "Heating", "monday": []any{map[string]any{"from": "00:00", "target_temperature": 18}}})
+	if w, _ := res["now"].(map[string]any)["warning"].(string); !strings.Contains(w, "doesn't show it yet") {
+		t.Errorf("result: %v", res)
 	}
 }

@@ -14,7 +14,8 @@ type prompt struct {
 	// needs lists the tools the prompt relies on: it's only offered when
 	// they're all registered, so a read-only server has no prompts that change things.
 	needs []string
-	text  func(args map[string]string) string
+	// text renders the prompt; has reports whether a tool is registered.
+	text func(args map[string]string, has func(tool string) bool) string
 }
 
 func or(v, fallback string) string {
@@ -29,7 +30,7 @@ var prompts = []prompt{
 		name: "home_check", title: "Home check",
 		description: "A quick check of the home: temperatures, what the heating and hot water are doing, holiday mode, and any low batteries or offline devices.",
 		needs:       []string{"hive_get_overview"},
-		text: func(map[string]string) string {
+		text: func(map[string]string, func(string) bool) string {
 			return `Check on my home with Hive.
 1. hive_get_overview (fresh: true): heating zones, hot water, plugs, lights, sensors, holiday mode and anything needing attention.
 2. If any radiator valves are listed, hive_list_trvs for their batteries and calibration.
@@ -45,7 +46,7 @@ Report: a one-line verdict, then each room's temperature against its target and 
 			{Name: "minutes", Description: "How long for, in minutes (default 60)"},
 			{Name: "zone", Description: "Which heating zone (default the main one)"},
 		},
-		text: func(a map[string]string) string {
+		text: func(a map[string]string, _ func(string) bool) string {
 			return fmt.Sprintf(`I'd like to warm the house up to %s °C for %s minutes (zone: %s).
 1. hive_get_heating: check the current temperature, target and mode for that zone. If it's already at or above that temperature, or already boosting, tell me and ask what I want.
 2. Show me what you'll do (zone, temperature, minutes, and what it goes back to afterwards) and wait for my go-ahead.
@@ -57,7 +58,7 @@ Report: a one-line verdict, then each room's temperature against its target and 
 		description: "Get hot water for a bath or shower: check whether it's already on and boost it if not.",
 		needs:       []string{"hive_get_hot_water", "hive_boost_hot_water"},
 		args:        []*mcp.PromptArgument{{Name: "minutes", Description: "How long to heat the water for, in minutes (default 30)"}},
-		text: func(a map[string]string) string {
+		text: func(a map[string]string, _ func(string) bool) string {
 			return fmt.Sprintf(`I need hot water soon.
 1. hive_get_hot_water: is it already heating, or due on shortly in its schedule?
 2. If it's off and not due on within 15 minutes, boost it for %s minutes with hive_boost_hot_water. Otherwise tell me when it comes on.
@@ -72,7 +73,7 @@ Report: a one-line verdict, then each room's temperature against its target and 
 			{Name: "leave", Description: "When you leave (YYYY-MM-DD or YYYY-MM-DDTHH:MM; default now)"},
 			{Name: "return", Description: "When you're back (YYYY-MM-DD or YYYY-MM-DDTHH:MM)", Required: true},
 		},
-		text: func(a map[string]string) string {
+		text: func(a map[string]string, _ func(string) bool) string {
 			return fmt.Sprintf(`I'm going away from %s until %s.
 1. hive_get_overview: current heating and hot water, holiday mode, and plugs or lights that are on.
 2. Suggest a holiday temperature (usually 7 to 12 °C to protect pipes; higher if there are pets or plants that need it) and a return time a couple of hours before I'm back, so the house is warm when I arrive.
@@ -84,12 +85,16 @@ Report: a one-line verdict, then each room's temperature against its target and 
 		name: "schedule_review", title: "Review heating schedules",
 		description: "Review the heating and hot water schedules for comfort and wasted energy, and suggest changes.",
 		needs:       []string{"hive_get_heating_schedule"},
-		text: func(map[string]string) string {
-			return `Review my heating and hot water schedules.
+		text: func(_ map[string]string, has func(string) bool) string {
+			s := `Review my heating and hot water schedules.
 1. hive_get_heating_schedule for each heating zone and TRV zone (see hive_get_heating for the zones), and hive_get_hot_water_schedule.
 2. Look for: heating on when people are usually out or asleep, very high or low targets, zones that heat at the same time as each other for no reason, long hot water periods, and weekdays and weekends that look copied without thought.
 3. Summarise each schedule in a short table, then suggest specific changes with the energy saving or comfort reason for each.
-Don't change anything: hive-mcp can't edit schedules, so I'll make any changes in the Hive app.`
+`
+			if has("hive_set_heating_schedule") || has("hive_set_hot_water_schedule") {
+				return s + `4. Ask which changes I want. For each one I agree to, show the new periods for the days that change, then apply them with hive_set_heating_schedule or hive_set_hot_water_schedule and show the schedule Hive now has. Don't change anything I haven't agreed to.`
+			}
+			return s + `Don't change anything: schedule editing is turned off on this server (it needs HIVE_ALLOW_WRITES), so I'll make any changes in the Hive app.`
 		},
 	},
 }
@@ -113,7 +118,7 @@ func registerPrompts(c *Context) {
 				}
 				return &mcp.GetPromptResult{
 					Description: p.description,
-					Messages:    []*mcp.PromptMessage{{Role: "user", Content: &mcp.TextContent{Text: p.text(args)}}},
+					Messages:    []*mcp.PromptMessage{{Role: "user", Content: &mcp.TextContent{Text: p.text(args, func(t string) bool { return c.tools[t] })}}},
 				}, nil
 			})
 	}

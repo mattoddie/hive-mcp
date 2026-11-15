@@ -82,7 +82,7 @@ The server includes five prompts. Each one is a ready-made, multi-step request t
 | `warm_up` | `temperature`, `minutes`, `zone` (all optional) | Checks the zone, shows you the boost it would start, and starts it after you agree. |
 | `hot_water_now` | `minutes` (optional, default 30) | Boosts the hot water unless it's already on or about to come on. |
 | `going_away` | `leave` (optional), `return` | Suggests a holiday temperature and end time, and what to switch off, then sets it after you agree. |
-| `schedule_review` | | Reviews the heating and hot water schedules for comfort and wasted energy, and suggests changes to make in the Hive app. |
+| `schedule_review` | | Reviews the heating and hot water schedules for comfort and wasted energy, and suggests changes. With writes on, it applies the ones you agree to; otherwise you make them in the Hive app. |
 
 The prompts that change things (`warm_up`, `hot_water_now` and `going_away`) are only offered when writes are enabled, and ask first. A prompt is also left out when its toolset is turned off.
 
@@ -111,6 +111,12 @@ Temperatures are 5 °C up to `HIVE_MAX_TEMP` (25 °C unless you change it; Hive 
 ### Hot water
 
 The hot water is `on` (stays on), `off`, on its `schedule`, or boosting for a set time. `hive_set_hot_water_mode` switches between the first three, and `hive_boost_hot_water` and `hive_cancel_hot_water_boost` handle boosts. Like manual heating, `on` needs `confirm: true`.
+
+### Schedules
+
+`hive_set_heating_schedule` (for a heating zone or TRV zone) and `hive_set_hot_water_schedule` change the weekly schedule. Give the periods for just the days that change, by day name or with `weekdays`, `weekend` or `every_day`; the other days keep their periods. Each day has one to six periods, each a start time (`HH:MM`, your home's local time) and a temperature (heating) or `on`/`off` (hot water), lasting until the next period starts. Hive only takes a whole week at once, so hive-mcp sends the week with your changes and shows the schedule Hive then has. A zone only follows its schedule in `schedule` mode.
+
+> *"Make the weekday heating 16 °C overnight, 20 °C from 6:30 to 8:30 and 21 °C from 17:00 to 22:30."*
 
 ### Holiday mode
 

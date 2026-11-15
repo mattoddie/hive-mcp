@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mattoddie/hive-mcp/internal/hive"
@@ -15,6 +16,10 @@ type setHotWaterArgs struct {
 
 type boostHotWaterArgs struct {
 	Minutes *int `json:"minutes,omitempty" jsonschema:"How long to heat the water for, in minutes (default 60, at most 360)"`
+}
+
+type setHotWaterScheduleArgs struct {
+	weekOf[hotWaterPeriod]
 }
 
 var hotWaterModes = map[string]string{"on": "MANUAL", "off": "OFF", "schedule": "SCHEDULE"}
@@ -58,6 +63,44 @@ func registerHotWater(c *Context) {
 			return nil, fmt.Errorf("the hot water has no schedule")
 		}
 		return Obj{"time_zone": n.Location().String(), "now": n.ScheduleNow(p, time.Now()), "week": hive.FormatSchedule(sched)}, nil
+	})
+
+	add(c, Def{
+		Toolset: "hotwater", Name: "hive_set_hot_water_schedule", Title: "Set hot water schedule",
+		Description: "Change the weekly hot water schedule. Give the periods for the days that change, by day or with weekdays, weekend or every_day (a specific day wins over a group); other days keep their current periods. Each day has 1 to 6 periods, each a start time (HH:MM, home's local time) and on or off, lasting until the next period starts (before a day's first period, the previous day's last one carries on). " +
+			"This replaces those days' schedule for good, so show the user the new periods and get their go-ahead first. The hot water only follows it in schedule mode.",
+		Gate: Write, Idempotent: true, Destructive: true,
+		Enums: map[string][]string{"status": {"on", "off"}},
+	}, func(ctx context.Context, a setHotWaterScheduleArgs) (any, error) {
+		changed := map[string][]slot{}
+		for day, periods := range a.days() {
+			for _, p := range periods {
+				start, err := parseClock(p.From)
+				if err != nil {
+					return nil, fmt.Errorf("%s: %w", day, err)
+				}
+				if p.Status != "on" && p.Status != "off" {
+					return nil, fmt.Errorf("%s %s: status must be on or off", day, p.From)
+				}
+				changed[day] = append(changed[day], slot{start, Obj{"status": strings.ToUpper(p.Status)}})
+			}
+			if len(periods) == 0 {
+				changed[day] = nil
+			}
+		}
+		_, p, err := hotWater(ctx, true)
+		if err != nil {
+			return nil, err
+		}
+		week, days, err := buildSchedule(p, changed)
+		if err != nil {
+			return nil, err
+		}
+		out, err := setSchedule(ctx, c, p, week, days)
+		if err == nil && hive.Str(p, "state", "mode") != "SCHEDULE" {
+			out.(Obj)["note_mode"] = "The hot water isn't in schedule mode, so it won't follow the schedule until it's switched to schedule (hive_set_hot_water_mode)."
+		}
+		return out, err
 	})
 
 	add(c, Def{
