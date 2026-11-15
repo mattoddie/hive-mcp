@@ -157,3 +157,33 @@ func TestHolidayLimitCountsCalendarDays(t *testing.T) {
 	// 60 days across the October clock change is 60 days and an hour.
 	env.obj("hive_set_holiday_mode", map[string]any{"start": "2030-10-01T12:00", "end": "2030-11-30T12:00", "temperature": 10})
 }
+
+func TestActions(t *testing.T) {
+	env := newEnv(t)
+	res := env.obj("hive_list_actions", nil)
+	acts := res["actions"].([]any)
+	if res["total"] != 2.0 || len(acts) != 2 {
+		t.Fatalf("actions: %v", res)
+	}
+	first := acts[0].(map[string]any)
+	when := first["when"].([]any)[0].(map[string]any)
+	if first["name"] != "Back door opened" || first["enabled"] != true || when["device"] != "Back door" || first["then"] == nil {
+		t.Errorf("summary: %v", first)
+	}
+
+	env.obj("hive_set_action", map[string]any{"action": "lamp", "enabled": true})
+	r := env.mock.Last("PUT")
+	if r == nil || r.Path != "/actions/action-2" {
+		t.Fatalf("request: %+v", r)
+	}
+	body := r.Body.(map[string]any)
+	if body["enabled"] != true || body["name"] != "Lamp on at dusk" || body["template"] != "light-dark-plug.1" || len(body["events"].([]any)) != 2 {
+		t.Errorf("the whole action should be sent back with enabled changed: %v", body)
+	}
+	if got := env.obj("hive_list_actions", nil)["actions"].([]any)[1].(map[string]any); got["enabled"] != true {
+		t.Errorf("after: %v", got)
+	}
+	if msg := env.callErr("hive_set_action", map[string]any{"action": "garage", "enabled": true}); !strings.Contains(msg, `no action called "garage"`) {
+		t.Errorf("unknown: %s", msg)
+	}
+}

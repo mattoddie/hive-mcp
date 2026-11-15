@@ -39,7 +39,7 @@ Window, door and motion sensors were also sold as part of HomeShield. They still
 
 ### Not covered
 
-- **Hive "actions" (automations).** The raw API tool can reach them if you know the request.
+- **Running a Hive action straight away, or creating and editing actions.** hive-mcp lists actions and turns them on or off; the request for running one on demand hasn't been confirmed. Use the Hive app.
 - **Radiator valve settings** (child lock) **and frost protection temperatures.** hive-mcp shows them, but neither the Hive app's requests for changing them nor an open-source client that does is known, so it doesn't guess.
 - **Hive heat pumps, EV chargers and energy data**, which use other systems.
 - **More than one home.** Hive accounts can have more than one home. hive-mcp reads what Hive returns by default, which is the primary home; switching between homes hasn't been worked out.

@@ -178,7 +178,7 @@ Every tool's name, description and argument schema is sent to the model, which u
 
 | Toolset | Use it for |
 |---|---|
-| `home` | Login, the overview, the device list and holiday mode. **Always include it.** |
+| `home` | Login, the overview, the device list, holiday mode and Hive actions. **Always include it.** |
 | `heating` | Heating zones and radiator valves |
 | `hotwater` | Hot water |
 | `devices` | Smart plugs, lights and sensors |

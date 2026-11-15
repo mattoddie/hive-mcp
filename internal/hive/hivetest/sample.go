@@ -39,7 +39,14 @@ func SampleNodes() map[string]any {
   "user": {"id": "user-1", "username": "sam@example.com", "email": "sam@example.com", "firstName": "Sam", "lastName": "Smith", "temperatureUnit": "C", "timezone": "Europe/London", "postcode": "AB1 2CD"},
   "homes": {"homes": [{"id": "home-1", "name": "Home", "primary": true, "owner": true, "userType": "OWNER", "homeTypes": ["HIVE"], "location": {"country": "GB", "timeZone": "Europe/London", "postcode": "AB1 2CD"}}]},
   "holidayMode": {"active": false, "enabled": false, "temperature": 7},
-  "actions": [{"id": "action-1", "name": "Lights off at bedtime", "enabled": true}],
+  "actions": [
+    {"id": "action-1", "name": "Back door opened", "enabled": true, "entitled": true, "template": "contact-sensor-canvas.1",
+     "events": [{"id": "` + SensorID + `", "group": "when", "type": "contact-sensor", "settings": {"event": "OPEN"}},
+                {"group": "then", "type": "notification", "settings": {"email": false, "push": true, "sms": false}}]},
+    {"id": "action-2", "name": "Lamp on at dusk", "enabled": false, "entitled": true, "template": "light-dark-plug.1",
+     "events": [{"group": "when", "type": "light-dark", "settings": {"period": "DARK"}},
+                {"id": "` + PlugID + `", "group": "then", "type": "plug", "settings": {"status": "ON"}}]}
+  ],
   "products": [
     {"id": "` + HeatingID + `", "type": "heating", "sortOrder": 1, "lastSeen": 1791100000000, "parent": "` + BoilerID + `",
      "props": {"online": true, "model": "SLR2", "temperature": 18.5, "working": true, "previous": {"mode": "OFF"}, "zone": "` + BoilerID + `",

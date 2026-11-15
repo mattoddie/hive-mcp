@@ -622,6 +622,16 @@ func (m *Mock) api(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		writeJSON(w, 404, map[string]string{"error": "NOT_FOUND"})
+	case r.Method == http.MethodPut && strings.HasPrefix(path, "/actions/"):
+		b, _ := req.Body.(map[string]any)
+		for i, a := range m.nodes["actions"].([]any) {
+			if a.(map[string]any)["id"] == strings.TrimPrefix(path, "/actions/") && b != nil {
+				m.nodes["actions"].([]any)[i] = b
+				writeJSON(w, 200, b)
+				return
+			}
+		}
+		writeJSON(w, 404, map[string]string{"error": "NOT_FOUND"})
 	case path == "/holiday-mode":
 		switch r.Method {
 		case http.MethodGet:

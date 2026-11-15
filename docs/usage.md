@@ -126,6 +126,10 @@ With heat on demand, Hive radiator valves can turn the boiler on through the the
 
 `hive_set_holiday_mode` holds the heating at one temperature from a start time (default now) to an end time, given as `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM` in your home's local time. It can last at most 60 days, counted as calendar days in your home's time zone. `hive_cancel_holiday_mode` ends it straight away.
 
+### Actions
+
+Hive actions are the automations you set up in the Hive app, such as "when the back door opens, send me a notification". `hive_list_actions` lists them, with what starts each one, any condition and what it does. `hive_set_action` turns one on or off. Actions can't be run on demand, created or edited from hive-mcp.
+
 ### Plugs and lights
 
 `hive_set_plug` switches a plug on or off. `hive_set_light` switches a light on or off and sets brightness (5–100%, rounded to the nearest 5) and, for tuneable and colour bulbs, colour temperature in kelvin. For colour bulbs it also sets a colour as `hue` (0–359°) and `saturation` (0–100%), with `brightness` as the colour's brightness; a value you leave out keeps its current setting. Setting a brightness, colour temperature or colour switches the light on.

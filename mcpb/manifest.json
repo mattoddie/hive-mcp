@@ -78,6 +78,10 @@
       "description": "A one-call snapshot of the home: every heating zone and TRV zone (current and target temperature, mode, boost, whether it's calling for heat), the hot water, plugs, lights and sensors, holiday mode, and anything that needs attention: low batteries, offline devices and discontinued hardware. A good first call."
     },
     {
+      "name": "hive_list_actions",
+      "description": "List the Hive actions (automations set up in the Hive app, such as \"when the back door opens, send a notification\"): each one's name, whether it's on, and its events: what starts it (when), any condition (while) and what it does (then), with the devices involved."
+    },
+    {
       "name": "hive_list_devices",
       "description": "List the Hive hardware: hub, thermostats, boiler module, radiator valves (TRVs), plugs, bulbs and sensors, with online status, battery level, signal strength, model and firmware. Filter by type, low battery or offline."
     },
