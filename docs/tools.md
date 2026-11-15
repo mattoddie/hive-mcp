@@ -389,14 +389,16 @@ List Hive smart plugs (on or off, power use), lights (on or off, brightness, col
 
 🟠 write
 
-Switch a Hive light on or off, and set its brightness or (for tuneable and colour bulbs) its white colour temperature.
+Switch a Hive light on or off, and set its brightness, its white colour temperature (tuneable and colour bulbs) or its colour as hue and saturation (colour bulbs).
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
-| `brightness` | integer (5–100) |  | Brightness in percent, 5 to 100 (rounded to the nearest 5, as the Hive app does) |
+| `brightness` | integer (5–100) |  | Brightness in percent, 5 to 100 (rounded to the nearest 5, as the Hive app does). With hue or saturation, the colour's brightness |
 | `colour_temperature` | integer (2700–6535) |  | White colour temperature in kelvin, for tuneable and colour bulbs: about 2700 (warm) to 6500 (cool) |
+| `hue` | integer (0–359) |  | Colour, for colour bulbs: hue in degrees, 0 to 359 (0 red, 120 green, 240 blue). Switches the bulb to colour mode; the saturation is kept unless given |
 | `light` | string |  | Light, by name or ID (see hive_list_smart_devices). Can be left out when there's only one |
-| `on` | boolean |  | true to switch on, false to switch off. Setting a brightness or colour temperature also switches the light on |
+| `on` | boolean |  | true to switch on, false to switch off. Setting a brightness, colour temperature or colour also switches the light on |
+| `saturation` | integer (0–100) |  | Colour, for colour bulbs: saturation in percent, 0 (white) to 100 (full colour). Switches the bulb to colour mode; the hue is kept unless given |
 
 ### hive_set_plug
 

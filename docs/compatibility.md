@@ -15,7 +15,7 @@ hive-mcp works with what's on your Hive account. These are the products it knows
 | Hive Active Plug | `activeplug` | ✅ on or off, power use | ✅ on and off |
 | Hive Active Light Dimmable | `warmwhitelight` | ✅ on or off, brightness | ✅ on, off, brightness |
 | Hive Active Light Cool to Warm White | `tuneablelight` | ✅ also colour temperature | ✅ also colour temperature |
-| Hive Active Light Colour | `colourtuneablelight` | ✅ also colour mode, hue and saturation | ✅ on, off, brightness, white colour temperature (not colours yet) |
+| Hive Active Light Colour | `colourtuneablelight` | ✅ also colour mode, hue and saturation | ✅ on, off, brightness, white colour temperature, colour (hue and saturation) |
 | Hive window or door sensor | `contactsensor` | ✅ open or closed, battery | |
 | Hive motion sensor | `motionsensor` | ✅ motion, temperature, battery | |
 | Hive hub | `hub` | ✅ online, signal, firmware | |
@@ -39,7 +39,7 @@ Window, door and motion sensors were also sold as part of HomeShield. They still
 
 ### Not covered
 
-- **Colour (hue and saturation) for colour bulbs** and Hive "actions" (automations). The raw API tool can reach them if you know the request.
+- **Hive "actions" (automations).** The raw API tool can reach them if you know the request.
 - **Radiator valve settings** (child lock) **and frost protection temperatures.** hive-mcp shows them, but neither the Hive app's requests for changing them nor an open-source client that does is known, so it doesn't guess.
 - **Hive heat pumps, EV chargers and energy data**, which use other systems.
 - **More than one home.** Hive accounts can have more than one home. hive-mcp reads what Hive returns by default, which is the primary home; switching between homes hasn't been worked out.
