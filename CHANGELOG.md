@@ -6,6 +6,14 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-15
+
+This release adds schedule editing, heat on demand, bulb colours, Hive actions and dry runs, and follows a code review. hive-mcp now has 29 tools (12 read, 15 write and 2 login) and 5 prompts. Read **Breaking changes** before upgrading.
+
+### Breaking changes
+
+- The prompts are offered only when the tools they use are: `warm_up`, `hot_water_now` and `going_away` need writes enabled, and a prompt is left out when its toolset is turned off.
+
 ### Added
 
 - `hive_set_heating_schedule` (heating zones and TRV zones) and `hive_set_hot_water_schedule` change the weekly schedule. Give periods in `days` for only the days that change, keyed by day or by `weekdays`, `weekend` or `every_day`; the rest of the week is kept. Each day takes one to six periods, temperatures are checked against `HIVE_MAX_TEMP`, and the result shows the schedule Hive then has. Both need `HIVE_ALLOW_WRITES`.
@@ -17,7 +25,6 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ### Changed
 
-- **Breaking:** The prompts are offered only when the tools they use are: `warm_up`, `hot_water_now` and `going_away` need writes enabled, and a prompt is left out when its toolset is turned off.
 - `hive_set_holiday_mode` and `hive_set_heating_mode` are annotated as destructive, since they can turn the heating down or off, and `hive_set_holiday_mode` is no longer marked idempotent, since its start defaults to now.
 - Building from source needs Go 1.26 or later.
 
@@ -129,7 +136,8 @@ First release, not yet tested against a live Hive account. Hive's API is unoffic
 - Multi-arch distroless Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - A mock Hive for tests (sign-in page, a Cognito that checks SRP proofs, SMS codes and remembered devices, and the API), and documentation including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/hive-mcp/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/mattoddie/hive-mcp/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/mattoddie/hive-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/mattoddie/hive-mcp/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/mattoddie/hive-mcp/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/mattoddie/hive-mcp/compare/v0.3.0...v0.3.1
