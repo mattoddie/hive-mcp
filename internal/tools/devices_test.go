@@ -143,3 +143,40 @@ func TestRawOutputRedactsTheUserProfile(t *testing.T) {
 		t.Errorf("cache changed: %v", err)
 	}
 }
+
+func TestSetLightColour(t *testing.T) {
+	env := newEnv(t)
+	n := env.mock.Nodes()
+	n["products"] = append(n["products"].([]any), map[string]any{
+		"id": "light-0000-4000-8000-000000000003", "type": "colourtuneablelight", "sortOrder": 9,
+		"props": map[string]any{"online": true, "colourTemperature": map[string]any{"min": 2700, "max": 6535}},
+		"state": map[string]any{"name": "Lounge lamp", "status": "OFF", "hue": 45, "saturation": 65, "value": 100, "brightness": 100, "colourMode": "WHITE", "colourTemperature": 3300},
+	})
+	env.mock.SetNodes(n)
+
+	res := env.obj("hive_set_light", map[string]any{"light": "lounge", "hue": 240})
+	if got := env.lastBody(); got != `/nodes/colourtuneablelight/light-0000-4000-8000-000000000003 {"colourMode":"COLOUR","hue":"240","saturation":"65","status":"ON","value":"100"}` {
+		t.Errorf("sent %s", got)
+	}
+	if now := res["now"].(map[string]any); now["colour_mode"] != "colour" || now["on"] != true {
+		t.Errorf("result: %v", res)
+	}
+	before := env.posts()
+	env.obj("hive_set_light", map[string]any{"light": "lounge", "saturation": 30, "brightness": 50})
+	if env.posts()-before != 1 || !strings.HasSuffix(env.lastBody(), `{"colourMode":"COLOUR","hue":"240","saturation":"30","status":"ON","value":"50"}`) {
+		t.Errorf("sent %s", env.lastBody())
+	}
+
+	for want, args := range map[string]map[string]any{
+		"isn't a colour bulb": {"light": "living", "hue": 10},
+		"not both":            {"light": "lounge", "hue": 10, "colour_temperature": 3000},
+		"can't also take":     {"light": "lounge", "on": false, "saturation": 10},
+	} {
+		if msg := env.callErr("hive_set_light", args); !strings.Contains(msg, want) {
+			t.Errorf("%v: %s", args, msg)
+		}
+	}
+	if !env.rejects("hive_set_light", map[string]any{"light": "lounge", "hue": 360}) {
+		t.Error("hue 360 accepted")
+	}
+}

@@ -21,9 +21,11 @@ type setPlugArgs struct {
 
 type setLightArgs struct {
 	Light             string `json:"light,omitempty" jsonschema:"Light, by name or ID (see hive_list_smart_devices). Can be left out when there's only one"`
-	On                *bool  `json:"on,omitempty" jsonschema:"true to switch on, false to switch off. Setting a brightness or colour temperature also switches the light on"`
-	Brightness        *int   `json:"brightness,omitempty" jsonschema:"Brightness in percent, 5 to 100 (rounded to the nearest 5, as the Hive app does)"`
+	On                *bool  `json:"on,omitempty" jsonschema:"true to switch on, false to switch off. Setting a brightness, colour temperature or colour also switches the light on"`
+	Brightness        *int   `json:"brightness,omitempty" jsonschema:"Brightness in percent, 5 to 100 (rounded to the nearest 5, as the Hive app does). With hue or saturation, the colour's brightness"`
 	ColourTemperature *int   `json:"colour_temperature,omitempty" jsonschema:"White colour temperature in kelvin, for tuneable and colour bulbs: about 2700 (warm) to 6500 (cool)"`
+	Hue               *int   `json:"hue,omitempty" jsonschema:"Colour, for colour bulbs: hue in degrees, 0 to 359 (0 red, 120 green, 240 blue). Switches the bulb to colour mode; the saturation is kept unless given"`
+	Saturation        *int   `json:"saturation,omitempty" jsonschema:"Colour, for colour bulbs: saturation in percent, 0 (white) to 100 (full colour). Switches the bulb to colour mode; the hue is kept unless given"`
 }
 
 func registerDevices(c *Context) {
@@ -83,15 +85,22 @@ func registerDevices(c *Context) {
 
 	add(c, Def{
 		Toolset: "devices", Name: "hive_set_light", Title: "Control a light",
-		Description: "Switch a Hive light on or off, and set its brightness or (for tuneable and colour bulbs) its white colour temperature.",
+		Description: "Switch a Hive light on or off, and set its brightness, its white colour temperature (tuneable and colour bulbs) or its colour as hue and saturation (colour bulbs).",
 		Gate:        Write, Idempotent: true,
-		Ranges: map[string][2]float64{"brightness": {5, 100}, "colour_temperature": {2700, 6535}},
+		Ranges: map[string][2]float64{"brightness": {5, 100}, "colour_temperature": {2700, 6535}, "hue": {0, 359}, "saturation": {0, 100}},
 	}, func(ctx context.Context, a setLightArgs) (any, error) {
-		if a.On == nil && a.Brightness == nil && a.ColourTemperature == nil {
+		colour := a.Hue != nil || a.Saturation != nil
+		if a.On == nil && a.Brightness == nil && a.ColourTemperature == nil && !colour {
 			return nil, errNoChange
 		}
-		if a.On != nil && !*a.On && (a.Brightness != nil || a.ColourTemperature != nil) {
-			return nil, fmt.Errorf("a light that's being switched off can't also take a brightness or colour temperature")
+		if a.On != nil && !*a.On && (a.Brightness != nil || a.ColourTemperature != nil || colour) {
+			return nil, fmt.Errorf("a light that's being switched off can't also take a brightness, colour temperature or colour")
+		}
+		if colour && a.ColourTemperature != nil {
+			return nil, fmt.Errorf("give either a colour temperature (white) or a hue and saturation (colour), not both")
+		}
+		if (a.Hue != nil && (*a.Hue < 0 || *a.Hue > 359)) || (a.Saturation != nil && (*a.Saturation < 0 || *a.Saturation > 100)) {
+			return nil, fmt.Errorf("hue must be 0 to 359 and saturation 0 to 100")
 		}
 		n, err := c.nodes(ctx, false)
 		if err != nil {
@@ -103,18 +112,45 @@ func registerDevices(c *Context) {
 		}
 		typ := hive.Str(p, "type")
 
+		if a.Brightness != nil && (*a.Brightness < 5 || *a.Brightness > 100) {
+			return nil, fmt.Errorf("brightness must be between 5 and 100")
+		}
 		var bodies []Obj
 		switch {
 		case a.On != nil && !*a.On:
 			bodies = append(bodies, Obj{"status": "OFF"})
-		case a.Brightness != nil:
-			if *a.Brightness < 5 || *a.Brightness > 100 {
-				return nil, fmt.Errorf("brightness must be between 5 and 100")
-			}
+		case a.Brightness != nil && !colour:
 			b := int(math.Round(float64(*a.Brightness)/5) * 5)
 			bodies = append(bodies, Obj{"status": "ON", "brightness": b})
-		case a.On != nil:
+		case a.On != nil && !colour:
 			bodies = append(bodies, Obj{"status": "ON"})
+		}
+		if colour {
+			if typ != "colourtuneablelight" {
+				return nil, fmt.Errorf("%s isn't a colour bulb, so it can't take a hue or saturation", hive.Name(p))
+			}
+			// The colour's brightness is its "value". Hue, saturation and value go
+			// together, as strings, as pyhiveapi's set_color sends them.
+			hsv := [3]float64{0, 100, 100}
+			for i, k := range []string{"hue", "saturation", "value"} {
+				if v, ok := hive.Num(p, "state", k); ok {
+					hsv[i] = v
+				}
+			}
+			if a.Hue != nil {
+				hsv[0] = float64(*a.Hue)
+			}
+			if a.Saturation != nil {
+				hsv[1] = float64(*a.Saturation)
+			}
+			if a.Brightness != nil {
+				hsv[2] = float64(*a.Brightness)
+			}
+			body := Obj{"colourMode": "COLOUR", "hue": fmt.Sprint(hsv[0]), "saturation": fmt.Sprint(hsv[1]), "value": fmt.Sprint(hsv[2])}
+			if len(bodies) == 0 {
+				body["status"] = "ON"
+			}
+			bodies = append(bodies, body)
 		}
 		if a.ColourTemperature != nil {
 			if typ == "warmwhitelight" {

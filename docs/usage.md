@@ -128,7 +128,7 @@ With heat on demand, Hive radiator valves can turn the boiler on through the the
 
 ### Plugs and lights
 
-`hive_set_plug` switches a plug on or off. `hive_set_light` switches a light on or off and sets brightness (5–100%, rounded to the nearest 5) and, for tuneable and colour bulbs, colour temperature in kelvin. Setting a brightness or colour temperature switches the light on.
+`hive_set_plug` switches a plug on or off. `hive_set_light` switches a light on or off and sets brightness (5–100%, rounded to the nearest 5) and, for tuneable and colour bulbs, colour temperature in kelvin. For colour bulbs it also sets a colour as `hue` (0–359°) and `saturation` (0–100%), with `brightness` as the colour's brightness; a value you leave out keeps its current setting. Setting a brightness, colour temperature or colour switches the light on.
 
 ## Zones, names and IDs
 
