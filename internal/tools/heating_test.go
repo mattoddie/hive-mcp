@@ -222,3 +222,34 @@ func TestSetScheduleWarnsWhenHiveDoesNotStoreIt(t *testing.T) {
 		t.Errorf("result: %v", res)
 	}
 }
+
+func TestSetHeatOnDemand(t *testing.T) {
+	env := newEnv(t)
+	res := env.obj("hive_set_heat_on_demand", map[string]any{"enabled": true})
+	if got := env.lastBody(); got != "/nodes/heating/"+hivetest.HeatingID+` {"autoBoost":"ENABLED"}` {
+		t.Errorf("sent %s", got)
+	}
+	if res["now"].(map[string]any)["heat_on_demand"] != true {
+		t.Errorf("result: %v", res)
+	}
+	env.obj("hive_set_heat_on_demand", map[string]any{"zone": "Heating", "enabled": false})
+	if got := env.lastBody(); !strings.HasSuffix(got, `{"autoBoost":"DISABLED"}`) {
+		t.Errorf("sent %s", got)
+	}
+	if msg := env.callErr("hive_set_heat_on_demand", map[string]any{"zone": "Bedroom", "enabled": true}); !strings.Contains(msg, "no heating zone with a thermostat called") {
+		t.Errorf("TRV zone: %s", msg)
+	}
+
+	// A thermostat without the setting is refused.
+	n := env.mock.Nodes()
+	heating := n["products"].([]any)[0].(map[string]any)
+	delete(heating["state"].(map[string]any), "autoBoost")
+	env.mock.SetNodes(n)
+	before := env.posts()
+	if msg := env.callErr("hive_set_heat_on_demand", map[string]any{"enabled": true}); !strings.Contains(msg, "doesn't have heat on demand") {
+		t.Errorf("unsupported: %s", msg)
+	}
+	if env.posts() != before {
+		t.Error("an unsupported change reached Hive")
+	}
+}

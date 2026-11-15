@@ -104,7 +104,7 @@ Read [Security](docs/security.md) before turning on writes. A heating system is 
 | Toolset | What's covered |
 |---|---|
 | `home` | Login, a one-call overview of the home, the list of Hive devices with batteries and signal, and holiday mode |
-| `heating` | Heating zones and radiator valve (TRV) zones: temperatures, modes and schedules; set the temperature, mode or weekly schedule, boost and cancel a boost |
+| `heating` | Heating zones and radiator valve (TRV) zones: temperatures, modes and schedules; set the temperature, mode or weekly schedule, boost and cancel a boost, heat on demand |
 | `hotwater` | Hot water: status and schedule; switch it on, off or back to its schedule, change the schedule, boost and cancel a boost |
 | `devices` | Smart plugs, lights and sensors: on or off, power use, brightness, colour temperature, open or closed |
 | `raw` | An escape hatch that calls any path of Hive's API. Off unless you list it (`HIVE_TOOLSETS=all,raw`) |
