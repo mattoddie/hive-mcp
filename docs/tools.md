@@ -29,42 +29,16 @@ Login, a one-call overview of the home, the list of Hive devices with batteries 
 
 | Tool | Access | Summary |
 |---|---|---|
-| [`hive_auth_complete`](#hive_auth_complete) | 🔵 login | Finish Hive login |
-| [`hive_auth_start`](#hive_auth_start) | 🔵 login | Start Hive login |
-| [`hive_auth_status`](#hive_auth_status) | 🟢 read | Hive login status |
 | [`hive_cancel_holiday_mode`](#hive_cancel_holiday_mode) | 🟠 write | Cancel holiday mode |
+| [`hive_complete_auth`](#hive_complete_auth) | 🔵 login | Finish Hive login |
+| [`hive_get_auth_status`](#hive_get_auth_status) | 🟢 read | Hive login status |
 | [`hive_get_holiday_mode`](#hive_get_holiday_mode) | 🟢 read | Get holiday mode |
 | [`hive_get_overview`](#hive_get_overview) | 🟢 read | Home overview |
 | [`hive_list_actions`](#hive_list_actions) | 🟢 read | List Hive actions |
 | [`hive_list_devices`](#hive_list_devices) | 🟢 read | List Hive devices |
 | [`hive_set_action`](#hive_set_action) | 🟠 write | Turn a Hive action on or off |
 | [`hive_set_holiday_mode`](#hive_set_holiday_mode) | 🟠 write | Set holiday mode |
-
-### hive_auth_complete
-
-🔵 login
-
-Finish a login started with hive_auth_start by giving the code Hive texted to the account's phone. This also registers the server as a remembered device, so it won't need a code again.
-
-| Argument | Type | Required | Description |
-|---|---|---|---|
-| `code` | string | yes | The code from the text message Hive sent to the account's phone |
-
-### hive_auth_start
-
-🔵 login
-
-Start logging this server in to Hive with HIVE_USERNAME and HIVE_PASSWORD. If this server is already a remembered device, that's the whole login. Otherwise Hive texts a code to the account's phone: ask the user for it and pass it to hive_auth_complete within about three minutes. Only use this when the user asks to log in or a tool says the server isn't logged in; it sends a real text message. It refuses to send another code within a minute of the last one, and to try again within five minutes of a login Hive refused.
-
-_No arguments._
-
-### hive_auth_status
-
-🟢 read
-
-Show whether this server is logged in to Hive: the account (with the email address masked), whether this server is a remembered device (so it can log in again without an SMS code), when the current token expires and any login error. Never shows passwords, tokens or device secrets.
-
-_No arguments._
+| [`hive_start_auth`](#hive_start_auth) | 🔵 login | Start Hive login |
 
 ### hive_cancel_holiday_mode
 
@@ -75,6 +49,24 @@ Cancel holiday mode, so the heating and hot water go back to their normal settin
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
+
+### hive_complete_auth
+
+🔵 login
+
+Finish a login started with hive_start_auth by giving the code Hive texted to the account's phone. This also registers the server as a remembered device, so it won't need a code again.
+
+| Argument | Type | Required | Description |
+|---|---|---|---|
+| `code` | string | yes | The code from the text message Hive sent to the account's phone |
+
+### hive_get_auth_status
+
+🟢 read
+
+Show whether this server is logged in to Hive: the account (with the email address masked), whether this server is a remembered device (so it can log in again without an SMS code), when the current token expires and any login error. Never shows passwords, tokens or device secrets.
+
+_No arguments._
 
 ### hive_get_holiday_mode
 
@@ -143,6 +135,14 @@ Set holiday mode: from start (default now) until end, the heating holds one temp
 | `temperature` | number (5–25) | yes | Temperature to keep the home at while away, in °C (from 5 in steps of 0.5, up to HIVE_MAX_TEMP; frost protection is usually 7) |
 | `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 | `start` | string |  | When holiday mode starts, as YYYY-MM-DD or YYYY-MM-DDTHH:MM in the home's local time (default now) |
+
+### hive_start_auth
+
+🔵 login
+
+Start logging this server in to Hive with HIVE_USERNAME and HIVE_PASSWORD. If this server is already a remembered device, that's the whole login. Otherwise Hive texts a code to the account's phone: ask the user for it and pass it to hive_complete_auth within about three minutes. Only use this when the user asks to log in or a tool says the server isn't logged in; it sends a real text message. It refuses to send another code within a minute of the last one, and to try again within five minutes of a login Hive refused.
+
+_No arguments._
 
 ## heating
 

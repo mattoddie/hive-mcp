@@ -2,6 +2,8 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -33,7 +35,7 @@ func TestGatesControlWhichToolsExist(t *testing.T) {
 			if !inRead {
 				t.Errorf("%s: read tool missing in read-only mode", name)
 			}
-			if !tool.Annotations.ReadOnlyHint && name != "hive_api_request" && !strings.HasPrefix(name, "hive_auth_") {
+			if !tool.Annotations.ReadOnlyHint && name != "hive_api_request" && name != "hive_start_auth" && name != "hive_complete_auth" {
 				t.Errorf("%s: read tool without readOnlyHint", name)
 			}
 		case Login:
@@ -49,8 +51,8 @@ func TestGatesControlWhichToolsExist(t *testing.T) {
 			}
 		}
 	}
-	if tool := allTools["hive_auth_start"]; tool == nil || !*tool.Annotations.OpenWorldHint {
-		t.Error("hive_auth_start sends a text message and should be open-world")
+	if tool := allTools["hive_start_auth"]; tool == nil || !*tool.Annotations.OpenWorldHint {
+		t.Error("hive_start_auth sends a text message and should be open-world")
 	}
 	if raw := reads["hive_api_request"]; raw == nil || !raw.Annotations.ReadOnlyHint {
 		t.Error("the raw tool should be read-only without writes")
@@ -85,17 +87,52 @@ func TestSchemasDescribeEveryArgument(t *testing.T) {
 			t.Errorf("%s: missing title or description", name)
 		}
 		schema, _ := tool.InputSchema.(map[string]any)
-		props, _ := schema["properties"].(map[string]any)
-		for arg, p := range props {
-			if d, _ := p.(map[string]any)["description"].(string); d == "" {
-				t.Errorf("%s.%s has no description", name, arg)
-			}
-		}
+		checkArgDescriptions(t, name, schema)
 	}
 	tool := toolNames(t, env.session)["hive_boost_heating"]
 	temp := tool.InputSchema.(map[string]any)["properties"].(map[string]any)["temperature"].(map[string]any)
 	if temp["minimum"] != 5.0 || temp["maximum"] != 25.0 {
 		t.Errorf("temperature range: %v", temp)
+	}
+}
+
+// checkArgDescriptions requires a description on every property, including the fields of
+// nested objects and of array items.
+func checkArgDescriptions(t *testing.T, path string, schema map[string]any) {
+	t.Helper()
+	if items, ok := schema["items"].(map[string]any); ok {
+		checkArgDescriptions(t, path+"[]", items)
+	}
+	props, _ := schema["properties"].(map[string]any)
+	for arg, p := range props {
+		prop, _ := p.(map[string]any)
+		if d, _ := prop["description"].(string); d == "" {
+			t.Errorf("%s.%s has no description", path, arg)
+		}
+		checkArgDescriptions(t, path+"."+arg, prop)
+	}
+}
+
+// A description or argument that names a tool the client can't see is a dead end.
+func TestDescriptionsNameOnlyRegisteredTools(t *testing.T) {
+	all := config.AllTools()
+	readOnly := all
+	readOnly.AllowWrites, readOnly.AllowLoginTools = false, false
+	writes, login := readOnly, readOnly
+	writes.AllowWrites = true
+	login.AllowLoginTools = true
+	env := newEnv(t, readOnly)
+	toolRe := regexp.MustCompile(`\bhive_[a-z_]+`)
+	for label, o := range map[string]config.Tools{"read-only": readOnly, "writes": writes, "login": login, "all": all} {
+		tools := toolNames(t, connect(t, env.client, o))
+		for name, tool := range tools {
+			schema, _ := json.Marshal(tool.InputSchema)
+			for _, ref := range toolRe.FindAllString(tool.Description+string(schema), -1) {
+				if _, ok := tools[ref]; !ok {
+					t.Errorf("%s: %s mentions %s, which isn't registered", label, name, ref)
+				}
+			}
+		}
 	}
 }
 
@@ -202,7 +239,7 @@ func TestNotLoggedIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	msg := env.callErr("hive_get_overview", nil)
-	if !strings.Contains(msg, "hive-mcp login") || !strings.Contains(msg, "hive_auth_start") {
+	if !strings.Contains(msg, "hive-mcp login") || !strings.Contains(msg, "hive_start_auth") {
 		t.Errorf("error: %s", msg)
 	}
 }
@@ -211,13 +248,13 @@ func TestLoginToolsNeedTheirOwnSwitch(t *testing.T) {
 	o := config.AllTools()
 	o.AllowLoginTools = false
 	names := toolNames(t, newEnv(t, o).session)
-	for _, name := range []string{"hive_auth_start", "hive_auth_complete"} {
+	for _, name := range []string{"hive_start_auth", "hive_complete_auth"} {
 		if names[name] != nil {
 			t.Errorf("%s registered without HIVE_ALLOW_LOGIN_TOOLS", name)
 		}
 	}
-	if names["hive_auth_status"] == nil {
-		t.Error("hive_auth_status should always be registered")
+	if names["hive_get_auth_status"] == nil {
+		t.Error("hive_get_auth_status should always be registered")
 	}
 	if names["hive_set_heating_temperature"] == nil {
 		t.Error("the login switch shouldn't affect write tools")

@@ -20,7 +20,7 @@ func instructions(opts config.Tools) string {
 	s := "Tools for Hive (British Gas's smart heating, unofficial): heating zones (Hive thermostats), radiator valves (TRVs), hot water, holiday mode, smart plugs, lights and sensors in the user's home. " +
 		"Start with hive_get_overview for a snapshot. List tools (and hive_get_heating) return {total, returned, items}. "
 	if opts.AllowLoginTools {
-		s += "If a tool says the server isn't logged in, tell the user to run `hive-mcp login`, or, if they ask you to, use hive_auth_start and hive_auth_complete (which texts them a code). "
+		s += "If a tool says the server isn't logged in, tell the user to run `hive-mcp login`, or, if they ask you to, use hive_start_auth and hive_complete_auth (which texts them a code). "
 	} else {
 		s += "If a tool says the server isn't logged in, tell the user to run `hive-mcp login`. "
 	}

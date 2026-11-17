@@ -114,7 +114,7 @@ func TestOnlyToolsThatChangeThingsHaveDryRun(t *testing.T) {
 	for name, tool := range toolNames(t, env.session) {
 		props, _ := tool.InputSchema.(map[string]any)["properties"].(map[string]any)
 		_, has := props["dry_run"]
-		changes := !tool.Annotations.ReadOnlyHint && !strings.HasPrefix(name, "hive_auth_")
+		changes := !tool.Annotations.ReadOnlyHint && name != "hive_start_auth" && name != "hive_complete_auth"
 		if has != changes {
 			t.Errorf("%s: dry_run %v, changes things %v", name, has, changes)
 		}

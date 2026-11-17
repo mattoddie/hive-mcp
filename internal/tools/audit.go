@@ -131,7 +131,7 @@ func (l *auditLog) warn(err any) {
 }
 
 // redactSecrets copies decoded JSON arguments with passwords, tokens, secrets
-// and the SMS code (hive_auth_complete's code) replaced by "[redacted]".
+// and the SMS code (hive_complete_auth's code) replaced by "[redacted]".
 func redactSecrets(v any) any {
 	switch x := v.(type) {
 	case map[string]any:

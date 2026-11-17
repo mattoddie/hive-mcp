@@ -64,7 +64,7 @@ type Hive struct {
 // Tools controls which tools are registered.
 type Tools struct {
 	AllowWrites bool
-	// AllowLoginTools registers hive_auth_start and hive_auth_complete, which
+	// AllowLoginTools registers hive_start_auth and hive_complete_auth, which
 	// log in with the password and can text an SMS code.
 	AllowLoginTools bool
 	// MaxTemp is the highest heating target (°C) the tools will set, for any

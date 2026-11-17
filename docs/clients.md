@@ -76,7 +76,7 @@ The easiest way is the **extension bundle**: a single `.mcpb` file that installs
 
 2. Double-click the file, or drag it onto **Settings → Extensions** in Claude Desktop, and click **Install**.
 3. Fill in the settings and turn the extension on. The tools appear under the tools (🔨) menu, and the prompts under the **+** menu. You can allow or block each tool separately there.
-4. **Log in once.** Have your phone to hand and ask Claude to *"log in to Hive"*. It calls `hive_auth_start`, Hive texts you a code, and you tell Claude the code so it can call `hive_auth_complete`. The server is then a remembered device and logs in again by itself, so you can turn **Allow logging in from Claude** off afterwards if you like.
+4. **Log in once.** Have your phone to hand and ask Claude to *"log in to Hive"*. It calls `hive_start_auth`, Hive texts you a code, and you tell Claude the code so it can call `hive_complete_auth`. The server is then a remembered device and logs in again by itself, so you can turn **Allow logging in from Claude** off afterwards if you like.
 
 To update, install the bundle from a newer release the same way. The login is kept.
 
@@ -86,7 +86,7 @@ To update, install the bundle from a newer release the same way. The login is ke
 |---|---|---|
 | **Hive email address** (required) | `HIVE_USERNAME` | The email address you log in to the Hive app with. |
 | **Hive password** (required) | `HIVE_PASSWORD` | Your Hive password. The server needs it to log in, and later to log in again by itself without an SMS code. |
-| **Allow logging in from Claude** | `HIVE_ALLOW_LOGIN_TOOLS` | On by default in the extension, so you can log in without a terminal. It registers `hive_auth_start` and `hive_auth_complete`, which can make Hive text you a code. |
+| **Allow logging in from Claude** | `HIVE_ALLOW_LOGIN_TOOLS` | On by default in the extension, so you can log in without a terminal. It registers `hive_start_auth` and `hive_complete_auth`, which can make Hive text you a code. |
 | **Allow changes** | `HIVE_ALLOW_WRITES` | Off by default, which keeps the assistant read-only. Read [Security](security.md) before turning it on. |
 | **Maximum temperature (°C)** | `HIVE_MAX_TEMP` | The highest heating target Claude may set. 25 by default. |
 | **Toolsets** | `HIVE_TOOLSETS` | Optional, such as `home,heating,hotwater`. Empty means every toolset except `raw`. See [Keeping the tool list small](configuration.md#keeping-the-tool-list-small). |
@@ -139,7 +139,7 @@ Or, with the local binary:
 }
 ```
 
-Restart Claude Desktop. The tools appear under the tools (🔨) menu, and the prompts appear under **+ → Add from hive**. If you haven't logged in yet, either run `hive-mcp login` once, or add `"-e", "HIVE_ALLOW_LOGIN_TOOLS=true"` to `args` and ask Claude to *"log in to Hive"*: it uses `hive_auth_start`, Hive texts you a code, and you tell Claude the code so it can call `hive_auth_complete`.
+Restart Claude Desktop. The tools appear under the tools (🔨) menu, and the prompts appear under **+ → Add from hive**. If you haven't logged in yet, either run `hive-mcp login` once, or add `"-e", "HIVE_ALLOW_LOGIN_TOOLS=true"` to `args` and ask Claude to *"log in to Hive"*: it uses `hive_start_auth`, Hive texts you a code, and you tell Claude the code so it can call `hive_complete_auth`.
 
 To turn on writes, add `"-e", "HIVE_ALLOW_WRITES=true"` to `args` (or `"HIVE_ALLOW_WRITES": "true"` to `env` for the binary).
 
@@ -233,7 +233,7 @@ To log in for stdio use, run the login command against the same volume once. It 
 docker run -it --rm --env-file /path/to/hive.env -v hive-data:/data ghcr.io/mattoddie/hive-mcp:latest login
 ```
 
-With the local binary, run `hive-mcp login` with the same environment instead. The login goes to `~/.config/hive-mcp/tokens.json`. With `HIVE_ALLOW_LOGIN_TOOLS=true` you can also log in from the chat with the `hive_auth_start` and `hive_auth_complete` tools.
+With the local binary, run `hive-mcp login` with the same environment instead. The login goes to `~/.config/hive-mcp/tokens.json`. With `HIVE_ALLOW_LOGIN_TOOLS=true` you can also log in from the chat with the `hive_start_auth` and `hive_complete_auth` tools.
 
 Tips:
 
