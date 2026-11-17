@@ -108,6 +108,7 @@ func parseWhen(s string, loc *time.Location) (time.Time, error) {
 // change sends a state change to a product and reports what was sent and how it looks afterwards.
 func change(ctx context.Context, cl *hive.Client, p Obj, body Obj, summarize func(*hive.Nodes, Obj) Obj) (any, error) {
 	typ, id := hive.Str(p, "type"), hive.Str(p, "id")
+	hive.SetCurrent(ctx, currentState(p, body))
 	if _, err := cl.SetNode(ctx, typ, id, body); err != nil {
 		return nil, err
 	}
@@ -127,6 +128,28 @@ func change(ctx context.Context, cl *hive.Client, p Obj, body Obj, summarize fun
 	}
 	out["note"] = "Hive can take a few seconds to show a change everywhere, and the boiler or device a little longer to respond."
 	return out, nil
+}
+
+// listResult is the output of a list tool: {total, returned, items}. Nothing
+// is paged or cut short, so total and returned are the same.
+func listResult(items []Obj) Obj {
+	if items == nil {
+		items = []Obj{}
+	}
+	return Obj{"total": len(items), "returned": len(items), "items": items}
+}
+
+// currentState is the part of a product's state that a change body sends:
+// the current value of each field in body that the product has.
+func currentState(p Obj, body Obj) Obj {
+	state, _ := p["state"].(Obj)
+	out := Obj{}
+	for k := range body {
+		if v, ok := state[k]; ok {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 var errNoChange = errors.New("nothing to change: give at least one setting")

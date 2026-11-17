@@ -156,7 +156,7 @@ func registerHome(c *Context) {
 		if out == nil {
 			out = []Obj{}
 		}
-		return Obj{"total": len(out), "devices": out}, nil
+		return listResult(out), nil
 	})
 
 	add(c, Def{
@@ -175,7 +175,7 @@ func registerHome(c *Context) {
 				out = append(out, n.SummarizeAction(act))
 			}
 		}
-		return Obj{"total": len(out), "actions": out}, nil
+		return listResult(out), nil
 	})
 
 	add(c, Def{
@@ -200,6 +200,7 @@ func registerHome(c *Context) {
 		}
 		body["enabled"] = a.Enabled
 		id := hive.Str(act, "id")
+		hive.SetCurrent(ctx, redactObj(act))
 		if err := cl.Do(ctx, "PUT", "/actions/"+url.PathEscape(id), body, nil); err != nil {
 			return nil, err
 		}
@@ -256,6 +257,7 @@ func registerHome(c *Context) {
 			return nil, fmt.Errorf("holiday mode can last at most %d days; end must be by %s", maxHolidayDays, limit.Format("2006-01-02T15:04"))
 		}
 		body := Obj{"start": start.UnixMilli(), "end": end.UnixMilli(), "temperature": a.Temperature}
+		previewHoliday(ctx, cl)
 		if err := cl.Post(ctx, "/holiday-mode", body, nil); err != nil {
 			return nil, err
 		}
@@ -268,12 +270,26 @@ func registerHome(c *Context) {
 		Description: "Cancel holiday mode, so the heating and hot water go back to their normal settings straight away.",
 		Gate:        Write, Idempotent: true,
 	}, func(ctx context.Context, _ NoArgs) (any, error) {
+		previewHoliday(ctx, cl)
 		if err := cl.Do(ctx, "DELETE", "/holiday-mode", Obj{}, nil); err != nil {
 			return nil, err
 		}
 		cl.Changed(ctx)
 		return Obj{"done": true, "holiday_mode": "cancelled"}, nil
 	})
+}
+
+// previewHoliday reads the current holiday mode for a dry run's preview.
+// Outside a dry run it does nothing; if the read fails, the preview just
+// goes without it.
+func previewHoliday(ctx context.Context, cl *hive.Client) {
+	if !hive.IsDryRun(ctx) {
+		return
+	}
+	var hm Obj
+	if err := cl.Get(ctx, "/holiday-mode", &hm); err == nil && hm != nil {
+		hive.SetCurrent(ctx, hm)
+	}
 }
 
 func asAny(v any) []any {

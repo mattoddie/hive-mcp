@@ -92,17 +92,19 @@ With `HIVE_ALLOW_WRITES=true` the assistant can change your heating, hot water, 
 
 ### Previewing a change
 
-Every tool that changes something takes `dry_run: true`. The call is checked as usual (zone names, temperatures, dates, `confirm`), but instead of being sent, the requests it would make are returned, in order, with their exact bodies:
+Every tool that changes something takes `dry_run: true`. The call is checked as usual (zone names, temperatures, dates, `confirm`), but nothing is sent. Instead you get the first request it would make, the current state of what it would change, and a field-by-field list of the changes:
 
 ```json
 {
   "dry_run": true,
-  "would_send": [
-    {"method": "POST", "path": "/nodes/heating/<id>", "body": {"boost": 60, "mode": "BOOST", "target": 21}}
-  ],
+  "would_send": {"method": "POST", "path": "/nodes/heating/<id>", "body": {"boost": 60, "mode": "BOOST", "target": 21}},
+  "current": {"boost": null, "mode": "SCHEDULE", "target": 19},
+  "changes": {"changed": {"boost": {"from": null, "to": 60}, "mode": {"from": "SCHEDULE", "to": "BOOST"}, "target": {"from": 19, "to": 21}}},
   "note": "Nothing was changed: this was a dry run. ..."
 }
 ```
+
+`would_send` also has `query` when the request has a query string. A change that takes more than one request (a light's brightness and colour temperature together) describes the first, and the note says how many more would follow.
 
 Ask the assistant to "show me what you'd send first" to see one. Nothing is changed and the cache isn't touched.
 

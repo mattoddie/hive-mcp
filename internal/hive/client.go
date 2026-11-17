@@ -168,7 +168,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body, out any) err
 		path = "/" + path
 	}
 	if d, ok := ctx.Value(dryRunKey{}).(*DryRun); ok && method != http.MethodGet {
-		d.record(PlannedRequest{Method: method, Path: path, Body: body})
+		d.record(method, path, body)
 		return nil
 	}
 	var payload []byte

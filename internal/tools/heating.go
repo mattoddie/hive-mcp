@@ -90,7 +90,7 @@ func registerHeating(c *Context) {
 		if out == nil {
 			return nil, fmt.Errorf("there is no heating on this Hive account")
 		}
-		return Obj{"zones": out}, nil
+		return listResult(out), nil
 	})
 
 	add(c, Def{
@@ -174,10 +174,11 @@ func registerHeating(c *Context) {
 			z["valves"] = valves
 			zones = append(zones, z)
 		}
+		out := listResult(zones)
 		if zones == nil {
-			return Obj{"zones": []Obj{}, "note": "No Hive radiator valves on this account."}, nil
+			out["note"] = "No Hive radiator valves on this account."
 		}
-		return Obj{"zones": zones}, nil
+		return out, nil
 	})
 
 	add(c, Def{
