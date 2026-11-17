@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"sort"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -205,7 +207,9 @@ func add[In any](c *Context, d Def, h func(ctx context.Context, in In) (any, err
 	}
 }
 
-const dryRunDescription = "Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed"
+const dryRunDescription = "Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed"
+
+const dryRunNote = "Nothing was changed: this was a dry run. would_send is the first request that would change something, and it was not sent. Call again without dry_run to make the change."
 
 // dryRunRequested reports whether a call passed dry_run: true.
 func dryRunRequested(req *mcp.CallToolRequest) bool {
@@ -218,17 +222,116 @@ func dryRunRequested(req *mcp.CallToolRequest) bool {
 	return json.Unmarshal(req.Params.Arguments, &a) == nil && a.DryRun
 }
 
-// dryRunResult reports the requests a dry run stopped. A tool that would
-// have sent nothing returns what it would have returned instead.
+// dryRunResult describes what a dry run stopped, in the shape the other
+// mattoddie MCP servers use: {dry_run, would_send: {method, path, query,
+// body}, current, changes} for the first request that would change
+// something. A tool that would have sent nothing returns what it would have
+// returned instead.
 func dryRunResult(reqs []hive.PlannedRequest, out any) Obj {
-	res := Obj{"dry_run": true, "would_send": reqs}
 	if len(reqs) == 0 {
-		res["result"] = out
-		res["note"] = "Nothing was changed: this was a dry run, and the call wouldn't send any change to Hive."
-		return res
+		return Obj{"dry_run": true, "would_send": nil, "result": out,
+			"note": "Nothing was changed: this was a dry run, and the call wouldn't send any change to Hive. result is what it returned."}
 	}
-	res["note"] = "Nothing was changed: this was a dry run. would_send lists the requests, in order, that the call would send to Hive. Call again without dry_run to make the change."
+	r := reqs[0]
+	send := Obj{"method": r.Method, "path": r.Path}
+	if r.Query != "" {
+		send["query"] = r.Query
+	}
+	body := normJSON(r.Body)
+	if body != nil {
+		send["body"] = body
+	}
+	res := Obj{"dry_run": true, "would_send": send}
+	note := dryRunNote
+	if r.Current != nil {
+		current := normJSON(r.Current)
+		res["current"] = current
+		if body != nil && r.Method != "DELETE" {
+			changes := diff(current, body)
+			res["changes"] = changes
+			if len(changes) == 0 {
+				note = "The request would not change any field. " + note
+			}
+		}
+	}
+	if more := len(reqs) - 1; more > 0 {
+		s := "s"
+		if more == 1 {
+			s = ""
+		}
+		note = fmt.Sprintf("The call would send %d more request%s after this one. %s", more, s, note)
+	}
+	res["note"] = note
 	return res
+}
+
+// normJSON round-trips v through JSON, so values built here (ints, structs)
+// compare equal to the same values read from Hive.
+func normJSON(v any) any {
+	if v == nil {
+		return nil
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return v
+	}
+	var out any
+	if json.Unmarshal(b, &out) != nil {
+		return v
+	}
+	return out
+}
+
+// diff lists the fields a request body would change in current, as
+// {changed: {path: {from, to}}, added: {path: value}}. Hive's updates only
+// touch the fields they send, so fields the body leaves out aren't listed.
+// Fields are named by path, such as schedule.monday[0].value.target.
+func diff(current, body any) Obj {
+	changed, added := Obj{}, Obj{}
+	var walk func(path string, from, to any)
+	walk = func(path string, from, to any) {
+		fo, fok := from.(map[string]any)
+		tob, tok := to.(map[string]any)
+		if fok && tok {
+			keys := make([]string, 0, len(tob))
+			for k := range tob {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				p := k
+				if path != "" {
+					p = path + "." + k
+				}
+				if _, ok := fo[k]; !ok {
+					added[p] = tob[k]
+					continue
+				}
+				walk(p, fo[k], tob[k])
+			}
+			return
+		}
+		fa, faok := from.([]any)
+		ta, taok := to.([]any)
+		if faok && taok && len(fa) == len(ta) {
+			for i := range ta {
+				walk(fmt.Sprintf("%s[%d]", path, i), fa[i], ta[i])
+			}
+			return
+		}
+		if !reflect.DeepEqual(from, to) {
+			changed[path] = Obj{"from": from, "to": to}
+		}
+	}
+	walk("", current, body)
+	out := Obj{}
+	if len(changed) > 0 {
+		out["changed"] = changed
+	}
+	if len(added) > 0 {
+		out["added"] = added
+	}
+	return out
 }
 
 // NoArgs is the input of tools without arguments.

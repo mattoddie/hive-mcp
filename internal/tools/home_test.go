@@ -57,7 +57,7 @@ func TestListDevices(t *testing.T) {
 	if all["total"] != 10.0 {
 		t.Errorf("devices: %v", all["total"])
 	}
-	meter := env.obj("hive_list_devices", map[string]any{"type": "smartmetergas"})["devices"].([]any)[0].(Obj)
+	meter := env.obj("hive_list_devices", map[string]any{"type": "smartmetergas"})["items"].([]any)[0].(Obj)
 	if _, ok := meter["online"]; ok || meter["connection"] == nil {
 		t.Errorf("smart meter: %v", meter)
 	}
@@ -66,11 +66,11 @@ func TestListDevices(t *testing.T) {
 		t.Errorf("low battery: %v", low)
 	}
 	off := env.obj("hive_list_devices", map[string]any{"offline": true})
-	if off["total"] != 1.0 || !strings.Contains(off["devices"].([]any)[0].(Obj)["discontinued"].(string), "HomeShield") {
+	if off["total"] != 1.0 || !strings.Contains(off["items"].([]any)[0].(Obj)["discontinued"].(string), "HomeShield") {
 		t.Errorf("offline: %v", off)
 	}
 	trv := env.obj("hive_list_devices", map[string]any{"type": "trv", "raw": true})
-	if trv["devices"].([]any)[0].(Obj)["id"] != hivetest.TRVID {
+	if trv["items"].([]any)[0].(Obj)["id"] != hivetest.TRVID {
 		t.Errorf("raw trv: %v", trv)
 	}
 }
@@ -161,7 +161,7 @@ func TestHolidayLimitCountsCalendarDays(t *testing.T) {
 func TestActions(t *testing.T) {
 	env := newEnv(t)
 	res := env.obj("hive_list_actions", nil)
-	acts := res["actions"].([]any)
+	acts := res["items"].([]any)
 	if res["total"] != 2.0 || len(acts) != 2 {
 		t.Fatalf("actions: %v", res)
 	}
@@ -180,7 +180,7 @@ func TestActions(t *testing.T) {
 	if body["enabled"] != true || body["name"] != "Lamp on at dusk" || body["template"] != "light-dark-plug.1" || len(body["events"].([]any)) != 2 {
 		t.Errorf("the whole action should be sent back with enabled changed: %v", body)
 	}
-	if got := env.obj("hive_list_actions", nil)["actions"].([]any)[1].(map[string]any); got["enabled"] != true {
+	if got := env.obj("hive_list_actions", nil)["items"].([]any)[1].(map[string]any); got["enabled"] != true {
 		t.Errorf("after: %v", got)
 	}
 	if msg := env.callErr("hive_set_action", map[string]any{"action": "garage", "enabled": true}); !strings.Contains(msg, `no action called "garage"`) {

@@ -74,7 +74,7 @@ Cancel holiday mode, so the heating and hot water go back to their normal settin
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 
 ### hive_get_holiday_mode
 
@@ -129,7 +129,7 @@ Turn a Hive action (an automation from the Hive app) on or off. This doesn't run
 |---|---|---|---|
 | `action` | string | yes | The action, by name or ID (see hive_list_actions) |
 | `enabled` | boolean | yes | true to turn the action on, false to turn it off |
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 
 ### hive_set_holiday_mode
 
@@ -141,7 +141,7 @@ Set holiday mode: from start (default now) until end, the heating holds one temp
 |---|---|---|---|
 | `end` | string | yes | When it ends and the normal schedule resumes, as YYYY-MM-DD or YYYY-MM-DDTHH:MM in the home's local time; at most 60 days after the start |
 | `temperature` | number (5–25) | yes | Temperature to keep the home at while away, in °C (from 5 in steps of 0.5, up to HIVE_MAX_TEMP; frost protection is usually 7) |
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 | `start` | string |  | When holiday mode starts, as YYYY-MM-DD or YYYY-MM-DDTHH:MM in the home's local time (default now) |
 
 ## heating
@@ -169,7 +169,7 @@ Boost a zone: heat to a temperature for a number of minutes, then go back to the
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `temperature` | number (5–25) | yes | Temperature to boost to, in °C (from 5 in steps of 0.5, up to HIVE_MAX_TEMP) |
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 | `minutes` | integer (1–360) |  | How long to boost for, in minutes (default 60, at most 360) |
 | `zone` | string |  | Heating zone or TRV zone, by name (for example "Heating" or "Bedroom") or ID. Can be left out when there's only one. See hive_get_heating |
 
@@ -181,7 +181,7 @@ Stop a zone's boost early and go back to the mode (and, for manual or off, the t
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 | `zone` | string |  | Heating zone or TRV zone, by name (for example "Heating" or "Bedroom") or ID. Can be left out when there's only one. See hive_get_heating |
 
 ### hive_get_heating
@@ -225,7 +225,7 @@ Turn heat on demand on or off for a heating zone. With it on, Hive radiator valv
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `enabled` | boolean | yes | true to let radiator valves turn the boiler on when their rooms need heat, false to stop them |
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 | `zone` | string |  | Heating zone (a Hive thermostat, not a TRV zone), by name or ID. Can be left out when there's only one |
 
 ### hive_set_heating_mode
@@ -238,7 +238,7 @@ Switch a zone between schedule (follow the weekly schedule), manual (hold one te
 |---|---|---|---|
 | `mode` | `"schedule"` \| `"manual"` \| `"off"` | yes | schedule (follow the heating schedule), manual (hold one temperature) or off (frost protection only) |
 | `confirm` | boolean |  | Must be true for heating mode manual or hot water mode on, which last indefinitely (until something changes them). Only set it once the user has agreed to an open-ended change; for a temporary one, boost instead |
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 | `temperature` | number (5–25) |  | With manual: the temperature to hold, in °C (from 5 in steps of 0.5, up to HIVE_MAX_TEMP). Default: the zone's current target |
 | `zone` | string |  | Heating zone or TRV zone, by name (for example "Heating" or "Bedroom") or ID. Can be left out when there's only one. See hive_get_heating |
 
@@ -251,7 +251,7 @@ Change a heating zone's or TRV zone's weekly schedule. In days, give the periods
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `days` | object | yes | The new periods for the days that change, keyed by day (monday ... sunday) or group (weekdays, weekend, every_day); a day wins over a group. Days left out keep their periods |
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 | `zone` | string |  | Heating zone or TRV zone, by name (for example "Heating" or "Bedroom") or ID. Can be left out when there's only one. See hive_get_heating |
 
 ### hive_set_heating_temperature
@@ -264,7 +264,7 @@ Set a zone's target temperature. In schedule mode this lasts until the next sche
 |---|---|---|---|
 | `temperature` | number (5–25) | yes | Target temperature in °C, from 5 in steps of 0.5, up to HIVE_MAX_TEMP (see the schema maximum) |
 | `confirm` | boolean |  | Must be true for heating mode manual or hot water mode on, which last indefinitely (until something changes them). Only set it once the user has agreed to an open-ended change; for a temporary one, boost instead |
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 | `mode` | `"manual"` \| `"schedule"` |  | Also switch mode: manual (hold this temperature) or schedule (just until the next scheduled change, as turning the dial does) |
 | `zone` | string |  | Heating zone or TRV zone, by name (for example "Heating" or "Bedroom") or ID. Can be left out when there's only one. See hive_get_heating |
 
@@ -289,7 +289,7 @@ Heat the hot water now for a number of minutes, then go back to the previous mod
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 | `minutes` | integer (1–360) |  | How long to heat the water for, in minutes (default 60, at most 360) |
 
 ### hive_cancel_hot_water_boost
@@ -300,7 +300,7 @@ Stop a hot water boost early and go back to the previous mode.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 
 ### hive_get_hot_water
 
@@ -331,7 +331,7 @@ Switch the hot water on (it stays on until changed), off, or back to its schedul
 |---|---|---|---|
 | `mode` | `"on"` \| `"off"` \| `"schedule"` | yes | on (stay on until changed), off, or schedule (follow the hot water schedule) |
 | `confirm` | boolean |  | Must be true for heating mode manual or hot water mode on, which last indefinitely (until something changes them). Only set it once the user has agreed to an open-ended change; for a temporary one, boost instead |
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 
 ### hive_set_hot_water_schedule
 
@@ -342,7 +342,7 @@ Change the weekly hot water schedule. In days, give the periods for the days tha
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `days` | object | yes | The new periods for the days that change, keyed by day (monday ... sunday) or group (weekdays, weekend, every_day); a day wins over a group. Days left out keep their periods |
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 
 ## devices
 
@@ -376,7 +376,7 @@ Switch a Hive light on or off, and set its brightness, its white colour temperat
 |---|---|---|---|
 | `brightness` | integer (5–100) |  | Brightness in percent, 5 to 100 (rounded to the nearest 5, as the Hive app does). With hue or saturation, the colour's brightness |
 | `colour_temperature` | integer (2700–6535) |  | White colour temperature in kelvin, for tuneable and colour bulbs: about 2700 (warm) to 6500 (cool) |
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 | `hue` | integer (0–359) |  | Colour, for colour bulbs: hue in degrees, 0 to 359 (0 red, 120 green, 240 blue). Switches the bulb to colour mode; the saturation is kept unless given |
 | `light` | string |  | Light, by name or ID (see hive_list_smart_devices). Can be left out when there's only one |
 | `on` | boolean |  | true to switch on, false to switch off. Setting a brightness, colour temperature or colour also switches the light on |
@@ -391,7 +391,7 @@ Switch a Hive smart plug on or off. Check what's plugged in with the user before
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `on` | boolean | yes | true to switch the plug on, false to switch it off |
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 | `plug` | string |  | Smart plug, by name or ID (see hive_list_smart_devices). Can be left out when there's only one |
 
 ## raw
@@ -412,7 +412,7 @@ Call any path of Hive's API (the undocumented "beekeeper" API the Hive app uses)
 |---|---|---|---|
 | `path` | string | yes | Path relative to https://beekeeper.hivehome.com/1.0, for example /nodes/all or /holiday-mode |
 | `body` | any |  | JSON request body for POST, PUT and DELETE |
-| `dry_run` | boolean |  | Preview only: check the call and return the exact requests it would send to Hive, without sending them. Nothing is changed |
+| `dry_run` | boolean |  | Preview only: check the call and return the first request it would send to Hive, with the current state and the fields that would change, without sending anything. Nothing is changed |
 | `method` | `"GET"` \| `"POST"` \| `"PUT"` \| `"DELETE"` |  | HTTP method: GET (default), POST, PUT or DELETE |
 | `query` | object |  | Query string parameters |
 

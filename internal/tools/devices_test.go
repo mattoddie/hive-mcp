@@ -16,11 +16,18 @@ import (
 func TestSmartDevices(t *testing.T) {
 	env := newEnv(t)
 	res := env.obj("hive_list_smart_devices", nil)
-	if len(res["plugs"].([]any)) != 1 || len(res["lights"].([]any)) != 2 || len(res["sensors"].([]any)) != 1 {
+	kinds := map[any]int{}
+	for _, it := range res["items"].([]any) {
+		kinds[it.(Obj)["kind"]]++
+	}
+	if kinds["plug"] != 1 || kinds["light"] != 2 || kinds["sensor"] != 1 || res["total"] != 4.0 || res["returned"] != 4.0 {
 		t.Errorf("devices: %v", res)
 	}
-	if lights := env.obj("hive_list_smart_devices", map[string]any{"kind": "lights"}); lights["plugs"] != nil {
-		t.Errorf("kind filter: %v", lights)
+	lights := env.obj("hive_list_smart_devices", map[string]any{"kind": "lights"})
+	for _, it := range lights["items"].([]any) {
+		if it.(Obj)["kind"] != "light" {
+			t.Errorf("kind filter: %v", lights)
+		}
 	}
 
 	env.obj("hive_set_plug", map[string]any{"on": false})

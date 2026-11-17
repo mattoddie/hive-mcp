@@ -2,6 +2,7 @@ package hive
 
 import (
 	"context"
+	"strings"
 	"sync"
 )
 
@@ -12,15 +13,20 @@ import (
 
 // PlannedRequest is a request a dry run didn't send.
 type PlannedRequest struct {
-	Method string `json:"method"`
-	Path   string `json:"path"`
-	Body   any    `json:"body,omitempty"`
+	Method string
+	Path   string
+	Query  string // the encoded query string, if any
+	Body   any
+	// Current is the state the request would change, when the tool gave it
+	// with SetCurrent before making the request.
+	Current any
 }
 
 // DryRun collects the requests of one dry-run call.
 type DryRun struct {
 	mu       sync.Mutex
 	requests []PlannedRequest
+	current  any
 }
 
 type dryRunKey struct{}
@@ -37,6 +43,17 @@ func IsDryRun(ctx context.Context) bool {
 	return ok
 }
 
+// SetCurrent gives, in a dry run, the current state that the next request
+// would change, so the preview can show it and what would change. Outside a
+// dry run it does nothing.
+func SetCurrent(ctx context.Context, current any) {
+	if d, ok := ctx.Value(dryRunKey{}).(*DryRun); ok {
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		d.current = current
+	}
+}
+
 // Requests returns the requests that would have been sent, in order.
 func (d *DryRun) Requests() []PlannedRequest {
 	d.mu.Lock()
@@ -44,8 +61,10 @@ func (d *DryRun) Requests() []PlannedRequest {
 	return append([]PlannedRequest{}, d.requests...)
 }
 
-func (d *DryRun) record(r PlannedRequest) {
+func (d *DryRun) record(method, path string, body any) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.requests = append(d.requests, r)
+	path, query, _ := strings.Cut(path, "?")
+	d.requests = append(d.requests, PlannedRequest{Method: method, Path: path, Query: query, Body: body, Current: d.current})
+	d.current = nil
 }

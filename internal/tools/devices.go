@@ -42,25 +42,26 @@ func registerDevices(c *Context) {
 		if err != nil {
 			return nil, err
 		}
-		out := Obj{}
-		add := func(key string, types []string, f func(Obj) Obj) {
+		items := []Obj{}
+		add := func(key, kind string, types []string, f func(Obj) Obj) {
 			if a.Kind != "" && a.Kind != key {
 				return
 			}
-			items := []Obj{}
 			for _, p := range n.Products(types...) {
+				var item Obj
 				if a.Raw {
-					items = append(items, redactObj(p))
+					item = redactObj(p)
 				} else {
-					items = append(items, f(p))
+					item = f(p)
 				}
+				item["kind"] = kind
+				items = append(items, item)
 			}
-			out[key] = items
 		}
-		add("plugs", hive.PlugTypes, n.SummarizePlug)
-		add("lights", hive.LightTypes, n.SummarizeLight)
-		add("sensors", hive.SensorTypes, n.SummarizeSensor)
-		return out, nil
+		add("plugs", "plug", hive.PlugTypes, n.SummarizePlug)
+		add("lights", "light", hive.LightTypes, n.SummarizeLight)
+		add("sensors", "sensor", hive.SensorTypes, n.SummarizeSensor)
+		return listResult(items), nil
 	})
 
 	add(c, Def{

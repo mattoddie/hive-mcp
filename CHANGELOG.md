@@ -6,6 +6,11 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+### Breaking changes
+
+- List output is `{total, returned, items}`, as in the other mattoddie MCP servers: `hive_list_devices` (was `devices`), `hive_list_actions` (was `actions`), `hive_get_heating` and `hive_list_trvs` (were `zones`), and `hive_list_smart_devices` (was separate `plugs`, `lights` and `sensors` lists; each item now has a `kind` of `plug`, `light` or `sensor`).
+- `dry_run: true` returns `{dry_run, would_send: {method, path, query, body}, current, changes, note}` for the first request the call would send, as the other mattoddie MCP servers do, instead of a list of every request. `current` is the state the request would change and `changes` lists each field that would change (`changed` with `from` and `to`, and `added`). When a call would send more than one request, the note says how many more would follow. A call that would send nothing returns `would_send: null` with its `result`.
+
 ## [0.5.0] - 2026-11-15
 
 This release adds schedule editing, heat on demand, bulb colours, Hive actions and dry runs, and follows a code review. hive-mcp now has 29 tools (12 read, 15 write and 2 login) and 5 prompts. Read **Breaking changes** before upgrading.

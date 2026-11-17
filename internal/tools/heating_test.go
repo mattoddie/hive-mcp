@@ -13,12 +13,12 @@ import (
 func TestGetHeating(t *testing.T) {
 	env := newEnv(t)
 	res := env.obj("hive_get_heating", map[string]any{"zone": "bedroom"})
-	zones := res["zones"].([]any)
+	zones := res["items"].([]any)
 	if len(zones) != 1 || zones[0].(Obj)["kind"] != "TRV zone" || zones[0].(Obj)["target_temperature"] != 18.0 {
 		t.Errorf("bedroom: %v", res)
 	}
 	raw := env.obj("hive_get_heating", map[string]any{"raw": true})
-	if len(raw["zones"].([]any)) != 2 || raw["zones"].([]any)[0].(Obj)["state"] == nil {
+	if len(raw["items"].([]any)) != 2 || raw["items"].([]any)[0].(Obj)["state"] == nil {
 		t.Errorf("raw: %v", raw)
 	}
 
@@ -35,7 +35,7 @@ func TestGetHeating(t *testing.T) {
 	}
 
 	trvs := env.obj("hive_list_trvs", nil)
-	valve := trvs["zones"].([]any)[0].(Obj)["valves"].([]any)[0].(Obj)
+	valve := trvs["items"].([]any)[0].(Obj)["valves"].([]any)[0].(Obj)
 	if valve["battery"] != 20.0 || valve["calibration"] != "calibrated" {
 		t.Errorf("valve: %v", valve)
 	}
