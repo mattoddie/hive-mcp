@@ -6,6 +6,10 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-17
+
+This release changes list and dry-run output to match the other mattoddie MCP servers ahead of 1.0. hive-mcp has 29 tools (12 read, 15 write and 2 login) and 5 prompts. Read the **Breaking** entries before upgrading.
+
 ### Breaking changes
 
 - List output is `{total, returned, items}`, as in the other mattoddie MCP servers: `hive_list_devices` (was `devices`), `hive_list_actions` (was `actions`), `hive_get_heating` and `hive_list_trvs` (were `zones`), and `hive_list_smart_devices` (was separate `plugs`, `lights` and `sensors` lists; each item now has a `kind` of `plug`, `light` or `sensor`).
@@ -141,7 +145,8 @@ First release, not yet tested against a live Hive account. Hive's API is unoffic
 - Multi-arch distroless Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - A mock Hive for tests (sign-in page, a Cognito that checks SRP proofs, SMS codes and remembered devices, and the API), and documentation including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/hive-mcp/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/mattoddie/hive-mcp/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/mattoddie/hive-mcp/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/mattoddie/hive-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/mattoddie/hive-mcp/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/mattoddie/hive-mcp/compare/v0.3.1...v0.3.2
