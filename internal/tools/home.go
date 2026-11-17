@@ -47,15 +47,15 @@ func registerHome(c *Context) {
 	cl := c.Client
 
 	add(c, Def{
-		Toolset: "home", Name: "hive_auth_status", Title: "Hive login status",
+		Toolset: "home", Name: "hive_get_auth_status", Title: "Hive login status",
 		Description: "Show whether this server is logged in to Hive: the account (with the email address masked), whether this server is a remembered device (so it can log in again without an SMS code), when the current token expires and any login error. Never shows passwords, tokens or device secrets.",
 	}, func(ctx context.Context, _ NoArgs) (any, error) {
 		return authStatus(cl.Auth.Status()), nil
 	})
 
 	add(c, Def{
-		Toolset: "home", Name: "hive_auth_start", Title: "Start Hive login",
-		Description: "Start logging this server in to Hive with HIVE_USERNAME and HIVE_PASSWORD. If this server is already a remembered device, that's the whole login. Otherwise Hive texts a code to the account's phone: ask the user for it and pass it to hive_auth_complete within about three minutes. " +
+		Toolset: "home", Name: "hive_start_auth", Title: "Start Hive login",
+		Description: "Start logging this server in to Hive with HIVE_USERNAME and HIVE_PASSWORD. If this server is already a remembered device, that's the whole login. Otherwise Hive texts a code to the account's phone: ask the user for it and pass it to hive_complete_auth within about three minutes. " +
 			"Only use this when the user asks to log in or a tool says the server isn't logged in; it sends a real text message. It refuses to send another code within a minute of the last one, and to try again within five minutes of a login Hive refused.",
 		Gate: Login, ReadOnly: boolPtr(false), OpenWorld: true,
 	}, func(ctx context.Context, _ NoArgs) (any, error) {
@@ -66,14 +66,14 @@ func registerHome(c *Context) {
 		res = maskLogin(res)
 		out := Obj{"result": res}
 		if res.CodeRequired {
-			out["next_step"] = fmt.Sprintf("Hive has sent a code by text message to %s. Ask the user for it and call hive_auth_complete with it within about three minutes.", res.CodeSentTo)
+			out["next_step"] = fmt.Sprintf("Hive has sent a code by text message to %s. Ask the user for it and call hive_complete_auth with it within about three minutes.", res.CodeSentTo)
 		}
 		return out, nil
 	})
 
 	add(c, Def{
-		Toolset: "home", Name: "hive_auth_complete", Title: "Finish Hive login",
-		Description: "Finish a login started with hive_auth_start by giving the code Hive texted to the account's phone. This also registers the server as a remembered device, so it won't need a code again.",
+		Toolset: "home", Name: "hive_complete_auth", Title: "Finish Hive login",
+		Description: "Finish a login started with hive_start_auth by giving the code Hive texted to the account's phone. This also registers the server as a remembered device, so it won't need a code again.",
 		Gate:        Login, ReadOnly: boolPtr(false),
 	}, func(ctx context.Context, a authCompleteArgs) (any, error) {
 		res, err := cl.Auth.CompleteLogin(ctx, a.Code)

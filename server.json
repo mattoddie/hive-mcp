@@ -45,7 +45,7 @@
         },
         {
           "name": "HIVE_ALLOW_LOGIN_TOOLS",
-          "description": "Let the assistant log in for you with an SMS code (hive_auth_start and hive_auth_complete).",
+          "description": "Let the assistant log in for you with an SMS code (hive_start_auth and hive_complete_auth).",
           "format": "boolean",
           "default": "true",
           "choices": [

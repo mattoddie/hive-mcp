@@ -39,7 +39,7 @@ You do step 1. Everything else is automatic. There are two ways to do step 1:
 | Method | How | Good for |
 |---|---|---|
 | `hive-mcp login` in a terminal | `docker compose run --rm hive-mcp login`, or `docker run -it --rm --env-file .env -v hive-data:/data ghcr.io/mattoddie/hive-mcp:latest login`, or `hive-mcp login` with the binary. It asks for the code. | The compose setup and most others. |
-| From the assistant | Set `HIVE_ALLOW_LOGIN_TOOLS=true` and restart, then ask it to *"log in to Hive"*. It calls `hive_auth_start` (Hive texts you), you tell it the code, and it calls `hive_auth_complete`. | Logging in without a terminal, for example with Claude Desktop in stdio mode. |
+| From the assistant | Set `HIVE_ALLOW_LOGIN_TOOLS=true` and restart, then ask it to *"log in to Hive"*. It calls `hive_start_auth` (Hive texts you), you tell it the code, and it calls `hive_complete_auth`. | Logging in without a terminal, for example with Claude Desktop in stdio mode. |
 
 Running `login` again later doesn't send a code if the server is still a remembered device. It just logs in afresh.
 
@@ -62,7 +62,7 @@ Running `login` again later doesn't send a code if the server is still a remembe
 | Variable | Default | Description |
 |---|---|---|
 | `HIVE_ALLOW_WRITES` | `false` | Register tools that change things: heating temperature and mode, boosts, hot water, holiday mode, plugs and lights, and non-GET requests in the raw API tool. |
-| `HIVE_ALLOW_LOGIN_TOOLS` | `false` | Register `hive_auth_start` and `hive_auth_complete`, so the assistant can log in for you. They log in with `HIVE_PASSWORD` and can make Hive text an SMS code, so they're off unless you ask for them. `hive_auth_status` is always available. |
+| `HIVE_ALLOW_LOGIN_TOOLS` | `false` | Register `hive_start_auth` and `hive_complete_auth`, so the assistant can log in for you. They log in with `HIVE_PASSWORD` and can make Hive text an SMS code, so they're off unless you ask for them. `hive_get_auth_status` is always available. |
 | `HIVE_MAX_TEMP` | `25` | The highest heating target, in °C, that any tool will set: temperature, manual mode, boosts and holiday mode. 5 to 32 in steps of 0.5 (Hive itself allows up to 32). The raw API tool doesn't apply it. |
 | `HIVE_TOOLSETS` | `all` | Comma-separated list of [toolsets](#choosing-toolsets) to expose. `all` means every toolset except `raw`, which has to be named, for example `all,raw`. |
 
@@ -88,7 +88,7 @@ Unlike an OAuth service, Hive's login has no read-only scope: whatever the switc
 |---|---|---|
 | `HIVE_AUDIT_LOG` | (off) | Record every call of a tool that changes things. A file path appends JSON Lines to that file, which is created with mode `0600` if it doesn't exist. `stderr` writes the lines to standard error, next to the server's other logs. |
 
-Each line is one call of a write tool (🟠 in the [tool reference](tools.md)), a login tool (`hive_auth_start` or `hive_auth_complete`), or `hive_api_request` with a method other than `GET`. Calls that failed, and calls refused for invalid arguments, are logged too. Read tools aren't.
+Each line is one call of a write tool (🟠 in the [tool reference](tools.md)), a login tool (`hive_start_auth` or `hive_complete_auth`), or `hive_api_request` with a method other than `GET`. Calls that failed, and calls refused for invalid arguments, are logged too. Read tools aren't.
 
 ```json
 {"time":"2026-10-22T08:14:03.120Z","tool":"hive_boost_heating","arguments":{"minutes":60,"temperature":21,"zone":"Living room"},"outcome":"ok"}

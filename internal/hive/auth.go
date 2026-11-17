@@ -60,7 +60,7 @@ const (
 )
 
 // ErrNotLoggedIn is returned when there are no tokens and the server can't log in by itself.
-var ErrNotLoggedIn = errors.New("not logged in to Hive. Run `hive-mcp login` once (in Docker: `docker compose run --rm hive-mcp login`) to enter the SMS code and remember this server, or use the hive_auth_start tool if HIVE_ALLOW_LOGIN_TOOLS is on")
+var ErrNotLoggedIn = errors.New("not logged in to Hive. Run `hive-mcp login` once (in Docker: `docker compose run --rm hive-mcp login`) to enter the SMS code and remember this server, or use the hive_start_auth tool if HIVE_ALLOW_LOGIN_TOOLS is on")
 
 // TokenStore reads and writes the token file atomically, readable only by its owner.
 type TokenStore struct{ File string }
@@ -572,7 +572,7 @@ func loginError(err error) error {
 // device, that's usually the end of it. Otherwise Hive texts a code to the
 // account's phone, and CompleteLogin finishes with it.
 //
-// A model can call it (hive_auth_start), so it won't try again within
+// A model can call it (hive_start_auth), so it won't try again within
 // reloginBackoff of a login Hive refused, which stops a wrong password from
 // getting the account locked, or within codeCooldown of the last SMS code,
 // which stops it from texting the user over and over.
@@ -596,7 +596,7 @@ func (a *Auth) StartLogin(ctx context.Context) (*LoginResult, error) {
 	// Only a login without a remembered device texts a code.
 	coolingDown := func() error {
 		if !sent.IsZero() && now.Sub(sent) < codeCooldown {
-			return fmt.Errorf("hive texted a code less than a minute ago. Enter that code (hive_auth_complete), or wait until %s before asking for a new one", sent.Add(codeCooldown).UTC().Format(time.RFC3339))
+			return fmt.Errorf("hive texted a code less than a minute ago. Enter that code (hive_complete_auth), or wait until %s before asking for a new one", sent.Add(codeCooldown).UTC().Format(time.RFC3339))
 		}
 		return nil
 	}
@@ -673,7 +673,7 @@ func (a *Auth) CompleteLogin(ctx context.Context, code string) (*LoginResult, er
 	p := a.pending
 	a.mu.Unlock()
 	if p == nil {
-		return nil, errors.New("there is no login waiting for a code. Start one first (hive_auth_start or `hive-mcp login`)")
+		return nil, errors.New("there is no login waiting for a code. Start one first (hive_start_auth or `hive-mcp login`)")
 	}
 	if a.now().Sub(p.created) > pendingLoginTTL {
 		a.mu.Lock()

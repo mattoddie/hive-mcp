@@ -83,7 +83,7 @@ docker run -it --rm --env-file .env -v hive-data:/data ghcr.io/mattoddie/hive-mc
 The `-it` matters: without it the command can't read the code you type.
 
 > [!TIP]
-> You can also log in from the chat. Set `HIVE_ALLOW_LOGIN_TOOLS=true`, restart, and ask the assistant to *"log in to Hive"*. It calls `hive_auth_start`, Hive texts you, you tell the assistant the code, and it calls `hive_auth_complete`. That's handy for stdio setups such as Claude Desktop.
+> You can also log in from the chat. Set `HIVE_ALLOW_LOGIN_TOOLS=true`, restart, and ask the assistant to *"log in to Hive"*. It calls `hive_start_auth`, Hive texts you, you tell the assistant the code, and it calls `hive_complete_auth`. That's handy for stdio setups such as Claude Desktop.
 
 ## 3. Start the server
 
@@ -109,7 +109,7 @@ curl http://<docker-host>:8080/health
 ```
 
 > [!TIP]
-> `/health` only shows that the server is running. It doesn't contact Hive. To check the login, run `docker compose exec hive-mcp /hive-mcp status`, or ask the assistant to call `hive_auth_status`. Step 5 is the real test.
+> `/health` only shows that the server is running. It doesn't contact Hive. To check the login, run `docker compose exec hive-mcp /hive-mcp status`, or ask the assistant to call `hive_get_auth_status`. Step 5 is the real test.
 
 ## 4. Connect your assistant
 

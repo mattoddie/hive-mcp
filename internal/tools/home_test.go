@@ -123,21 +123,21 @@ func TestAuthToolsLogInWithSMSCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	env := &testEnv{t: t, mock: m, client: client, session: connect(t, client, config.AllTools())}
-	if st := env.obj("hive_auth_status", nil); st["logged_in"] != false || st["password_configured"] != true {
+	if st := env.obj("hive_get_auth_status", nil); st["logged_in"] != false || st["password_configured"] != true {
 		t.Errorf("status before: %v", st)
 	}
-	start := env.obj("hive_auth_start", nil)
+	start := env.obj("hive_start_auth", nil)
 	if !strings.Contains(start["next_step"].(string), "+*******1234") {
 		t.Errorf("start: %v", start)
 	}
-	if msg := env.callErr("hive_auth_complete", map[string]any{"code": "000000"}); !strings.Contains(msg, "isn't right") {
+	if msg := env.callErr("hive_complete_auth", map[string]any{"code": "000000"}); !strings.Contains(msg, "isn't right") {
 		t.Errorf("wrong code: %s", msg)
 	}
-	res := env.obj("hive_auth_complete", map[string]any{"code": hivetest.SMSCode})
+	res := env.obj("hive_complete_auth", map[string]any{"code": hivetest.SMSCode})
 	if res["logged_in"] != true || res["device_remembered"] != true || res["username"] != "s***@example.com" || res["token_file"] != nil {
 		t.Errorf("complete: %v", res)
 	}
-	st := env.obj("hive_auth_status", nil)
+	st := env.obj("hive_get_auth_status", nil)
 	if st["logged_in"] != true || st["device_remembered"] != true || st["device_name"] != "hive-mcp-test" {
 		t.Errorf("status: %v", st)
 	}

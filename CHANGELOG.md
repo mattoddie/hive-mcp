@@ -6,6 +6,10 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** the login tools are named verb-first like the rest: `hive_auth_start` is now `hive_start_auth`, `hive_auth_complete` is now `hive_complete_auth` and `hive_auth_status` is now `hive_get_auth_status`. The old names are gone.
+
 ## [0.6.0] - 2026-11-17
 
 This release changes list and dry-run output to match the other mattoddie MCP servers ahead of 1.0. hive-mcp has 29 tools (12 read, 15 write and 2 login) and 5 prompts. Read the **Breaking** entries before upgrading.

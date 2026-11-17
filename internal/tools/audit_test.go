@@ -44,14 +44,14 @@ func TestAuditLogRecordsChanges(t *testing.T) {
 		t.Fatal("a 999-minute boost was accepted")
 	}
 	env.raw("hive_api_request", map[string]any{"method": "post", "path": "/holiday-mode", "body": map[string]any{"enabled": false}})
-	env.raw("hive_auth_complete", map[string]any{"code": "123456"})
+	env.raw("hive_complete_auth", map[string]any{"code": "123456"})
 
 	entries := readAudit(t, path)
 	var tools []string
 	for _, e := range entries {
 		tools = append(tools, e["tool"].(string))
 	}
-	if got := strings.Join(tools, ","); got != "hive_boost_heating,hive_boost_heating,hive_api_request,hive_auth_complete" {
+	if got := strings.Join(tools, ","); got != "hive_boost_heating,hive_boost_heating,hive_api_request,hive_complete_auth" {
 		t.Fatalf("logged %s", got)
 	}
 	first := entries[0]

@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Start with the logs: `docker compose logs hive-mcp`. Configuration errors stop the server at startup with a clear message. Hive errors show up in the tool results the assistant sees, and you can usually ask it *"what error did you get?"*. To check the login, run `docker compose exec hive-mcp /hive-mcp status` or ask the assistant to call `hive_auth_status`.
+Start with the logs: `docker compose logs hive-mcp`. Configuration errors stop the server at startup with a clear message. Hive errors show up in the tool results the assistant sees, and you can usually ask it *"what error did you get?"*. To check the login, run `docker compose exec hive-mcp /hive-mcp status` or ask the assistant to call `hive_get_auth_status`.
 
 - [The container keeps restarting](#the-container-keeps-restarting)
 - [The client can't connect to the server](#the-client-cant-connect-to-the-server)
@@ -106,7 +106,7 @@ Hive has forgotten this server as a remembered device, for example because it wa
 
 **`logging in to Hive failed recently; not retrying until … to avoid locking the account`**
 
-An automatic login failed (see the earlier error in `hive_auth_status`), so the server waits five minutes before trying again. Fix the cause, such as a changed password, or run `hive-mcp login`, which works straight away.
+An automatic login failed (see the earlier error in `hive_get_auth_status`), so the server waits five minutes before trying again. Fix the cause, such as a changed password, or run `hive-mcp login`, which works straight away.
 
 **`could not save tokens to /data/tokens.json: … They will be lost on restart; mount a writable volume there`**
 
