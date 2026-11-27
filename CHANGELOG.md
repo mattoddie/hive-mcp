@@ -6,6 +6,14 @@ For hive-mcp, the "public API" is the set of tool names, their arguments, the pr
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-27
+
+A maintenance release with an updated Docker base image. hive-mcp still has 29 tools (12 read, 15 write and 2 login) and 5 prompts.
+
+### Changed
+
+- The Docker image is built on the latest `gcr.io/distroless/static-debian13` base image.
+
 ## [0.7.0] - 2026-11-17
 
 This release renames the auth tools verb-first, matching crunch-mcp. hive-mcp has 29 tools (12 read, 15 write and 2 login) and 5 prompts. Read the **Breaking** entries before upgrading.
@@ -153,7 +161,8 @@ First release, not yet tested against a live Hive account. Hive's API is unoffic
 - Multi-arch distroless Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - A mock Hive for tests (sign-in page, a Cognito that checks SRP proofs, SMS codes and remembered devices, and the API), and documentation including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/hive-mcp/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/mattoddie/hive-mcp/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/mattoddie/hive-mcp/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/mattoddie/hive-mcp/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/mattoddie/hive-mcp/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/mattoddie/hive-mcp/compare/v0.4.0...v0.5.0
